@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VideoAssist: Multimodal Temporal Event Retrieval & Evidence-Grounded QA
 
-## Getting Started
+## Project Objective
+VideoAssist is an AI-assisted video understanding system designed for IT/network field-service operations. The system processes multimodal inputs (video frames, speech transcripts, and OCR text) to automatically segment and retrieve relevant operational events, and provide grounded answers to natural language questions based on explicit evidence.
 
-First, run the development server:
+**⚠️ IMPORTANT DEMO PROTOTYPE NOTICE ⚠️**  
+> This is a demonstration prototype. The current AI pipeline uses simulated/mock inference data to demonstrate the User Experience, UI flow, and temporal reasoning logic. It does not actively process live videos using neural networks in this version.
+
+## Architecture
+The simulated pipeline flows through the following stages:
+1. **Video Preprocessing**: Extracting frames and audio.
+2. **Multimodal Analysis**: Processing Visual (frames), Speech (transcripts), and Text (OCR).
+3. **Temporal Segmentation**: Chunking continuous video into logical operational events.
+4. **Multimodal Indexing**: Creating a searchable semantic index.
+5. **Query Understanding**: Parsing intent, target events, and temporal anchors.
+6. **Coarse Retrieval & Fine Grounding**: Locating the general segment and extracting precise start/end bounds.
+7. **Evidence Verification & QA**: Validating the multimodal evidence and outputting a grounded answer (or abstaining if out of scope).
+
+## Technology Stack
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Architecture**: Component-based React Server/Client Architecture
+
+## How to Run
+To run the demo application locally:
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo Workflow
+1. **Start Analysis**: Click "Analyze Video" to kick off the simulated processing pipeline.
+2. **Explore Timeline**: Once complete, interact with the timeline to view generated temporal events, visual/OCR/speech evidence, and temporal relationships.
+3. **Run Guided Demo**: In the "Ask VideoAssist" panel, click "Run Guided Demo" to automatically execute an end-to-end query retrieval process.
+4. **Manual QA**: Click any of the preset questions or type your own (e.g. "Who is the technician?" to test the abstention mechanism).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Mocked Components
+- **Video Processing**: Pipeline progression is simulated via timeouts in `page.tsx`.
+- **Inference Engine**: Replaced with deterministic rules in `SearchPanel.tsx`.
+- **Database/Vector Store**: Replaced with statically typed mock arrays in `src/data/mockData.ts`.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Future Integration (Real AI Implementation)
+The next phase of the project will replace the simulation layer with real model inference:
+- **Whisper**: Audio transcription and speaker diarization.
+- **PaddleOCR**: Reading text from screens and equipment labels.
+- **YOLO-class detector / CLIP / SigLIP**: Zero-shot or fine-tuned object detection and visual feature extraction.
+- **Video-capable VLM (e.g., Gemini 1.5 Pro / LLaVA)**: Dense video captioning and reasoning.
+- **Sentence Transformers**: Semantic embedding generation.
+- **FAISS**: Vector indexing and fast similarity search.
+- **PostgreSQL**: Structured metadata and relational storage.
+- **FastAPI**: Python-based inference backend to interface with the Next.js frontend.

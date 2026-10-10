@@ -1,26 +1,134 @@
 @import "tailwindcss";
+@import "tailwindcss/utilities";
+
+/* 
+ * VideoAssist Design Tokens 
+ * Theme toggling is handled by next-themes which sets data-theme="dark" or class="dark"
+ * We'll use the 'dark' class approach common in Next.js + Tailwind setups, or data-theme.
+ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* LIGHT MODE - Warm Cream & Violet */
+  --background: #FDF4DC;
+  --foreground: #1A1B1E;
+  
+  --surface: #F8EED4;
+  --surface-secondary: #F2E7CB;
+  --surface-elevated: #FFFFFF;
+  
+  --border: #E5D9BB;
+  
+  --primary: #7C3AED;
+  --primary-hover: #6D28D9;
+  --primary-soft: #EDE9FE;
+  --primary-foreground: #FFFFFF;
+  
+  --accent: #C4B5FD;
+  
+  --text-primary: #1A1B1E;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+  
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+  
+  --timeline: #E5D9BB;
+  --video-overlay: rgba(0, 0, 0, 0.5);
+
+  --chart-visual: #8B5CF6; /* Violet */
+  --chart-speech: #A78BFA; /* Lavender */
+  --chart-ocr: #F59E0B; /* Complementary warm accent */
 }
 
-@theme inline {
+/* DARK MODE */
+/* Note: Normalizing requested color #35383 to a valid hex: #353838 */
+.dark {
+  --background: #353838;
+  --foreground: #E5E7EB;
+  
+  --surface: #2A2C2C;
+  --surface-secondary: #222424;
+  --surface-elevated: #444747;
+  
+  --border: #4B4E4E;
+  
+  --primary: #8B5CF6;
+  --primary-hover: #A78BFA;
+  --primary-soft: rgba(139, 92, 246, 0.2);
+  --primary-foreground: #FFFFFF;
+  
+  --accent: #7C3AED;
+  
+  --text-primary: #F3F4F6;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  
+  --success: #34D399;
+  --warning: #FBBF24;
+  --error: #F87171;
+  --info: #60A5FA;
+  
+  --timeline: #4B4E4E;
+  --video-overlay: rgba(0, 0, 0, 0.7);
+
+  --chart-visual: #8B5CF6;
+  --chart-speech: #A78BFA;
+  --chart-ocr: #FBBF24;
+}
+
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-elevated: var(--surface-elevated);
+  
+  --color-border: var(--border);
+  
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  
+  --color-accent: var(--accent);
+  
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+  
+  --color-timeline: var(--timeline);
+  --color-video-overlay: var(--video-overlay);
+
+  --color-chart-visual: var(--chart-visual);
+  --color-chart-speech: var(--chart-speech);
+  --color-chart-ocr: var(--chart-ocr);
+
+  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Tailwind configuration to allow class-based dark mode logic just in case */
+@custom-variant dark (&:where(.dark, .dark *));
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth transitions for theme switching on major elements */
+*, *::before, *::after {
+  border-color: var(--border);
+}
+
+.transition-theme {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
