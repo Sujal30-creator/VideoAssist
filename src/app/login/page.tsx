@@ -51,7 +51,8 @@ function LoginForm() {
     }
 
     await refreshSession();
-    router.push(callbackUrl);
+    // Use direct location navigation so Next.js server components re-evaluate instantly
+    window.location.href = callbackUrl || "/";
   };
 
   const loadSampleAccount = (
