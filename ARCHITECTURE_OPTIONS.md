@@ -86,10 +86,3 @@ Build the **PostgreSQL + pgvector core with `user_id` columns present from Day 1
 - **Phase 3 (SaaS Expansion):** When you wish to commercialize, simply attach Better Auth open signup and Stripe billing onto the already tenant-aware PostgreSQL schema.
 
 ---
-
-### Decision Matrix
-
-Choose the path that aligns with your goal:
-
-- **Pick Option A** if your primary goal is building the AI system, completing the academic/field-service research project, or deploying for a specific company/team.
-- **Pick Option B** if your immediate goal is launching a public startup product for freelance technicians with credit card payments and self-registration.
