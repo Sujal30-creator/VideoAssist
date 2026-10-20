@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Activity, LogOut, User as UserIcon } from 'lucide-react';
+import { Activity, LogOut, ShieldCheck } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/components/AuthProvider';
 import UserProfileModal from '@/components/dashboard/UserProfileModal';
@@ -19,7 +19,7 @@ export default function Header() {
             <h1 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
               VideoAssist
               <span className="text-text-muted font-normal text-sm hidden md:inline-block ml-2 border-l border-border pl-2">
-                Multimodal Temporal Event Retrieval & Evidence-Grounded QA
+                Multimodal Temporal Event Retrieval & Evidence Grounding
               </span>
             </h1>
           </div>
@@ -27,20 +27,22 @@ export default function Header() {
           <div className="flex items-center gap-3">
             {user ? (
               <div className="flex items-center gap-3">
+                {/* Authenticated user indicator badge */}
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  title="View User Profile & Activity History"
-                  className="flex items-center gap-2 bg-surface hover:bg-surface-secondary px-3 py-1.5 rounded-full border border-border text-xs transition-all cursor-pointer group"
+                  title="View User Profile & Session Information"
+                  className="flex items-center gap-2.5 bg-surface hover:bg-surface-secondary px-3 py-1.5 rounded-full border border-border text-xs transition-all cursor-pointer group shadow-sm"
                 >
                   <div className="w-6 h-6 rounded-full bg-primary-soft text-primary flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
-                    {user.name.charAt(0).toUpperCase()}
+                    {user.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="font-semibold text-text-primary leading-tight group-hover:text-primary transition-colors">
-                      {user.name}
+                    <span className="font-semibold text-text-primary leading-tight group-hover:text-primary transition-colors text-[11px]">
+                      {user.email}
                     </span>
-                    <span className="text-[10px] text-text-muted capitalize">
-                      {user.organization || user.role}
+                    <span className="text-[9px] text-text-muted capitalize flex items-center gap-1">
+                      <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
+                      {user.role} • {user.organization || 'Field Ops'}
                     </span>
                   </div>
                 </button>
@@ -56,7 +58,7 @@ export default function Header() {
             ) : (
               <span className="text-primary font-medium text-xs px-2.5 py-1 rounded-full bg-primary-soft border border-primary/20 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                Demo Mode
+                Demo / Unauthenticated
               </span>
             )}
 

@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User } from '@/types/auth';
-import { getSession, logoutAction } from '@/app/actions/auth';
-import { useRouter } from 'next/navigation';
+import { getCurrentUser, signOutAction } from '@/app/actions/auth';
+import { createClient } from '@/lib/supabase/client';
 
 interface AuthContextType {
   user: User | null;
@@ -22,13 +22,27 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   const refreshSession = useCallback(async () => {
     try {
-      const { user: current } = await getSession();
-      setUser(current);
-      return current;
+      const current = await getCurrentUser();
+      if (!current) {
+        setUser(null);
+        return null;
+      }
+      const mappedUser: User = {
+        id: current.id,
+        name: current.name || current.email.split('@')[0],
+        email: current.email,
+        role: (current.role as 'technician' | 'supervisor' | 'admin') || 'technician',
+        organization: current.email.includes('@')
+          ? current.email.split('@')[1].split('.')[0].toUpperCase() + ' Ops'
+          : 'Field Ops',
+        workspaceType: 'COMPANY',
+        createdAt: new Date().toISOString(),
+      };
+      setUser(mappedUser);
+      return mappedUser;
     } catch {
       setUser(null);
       return null;
@@ -39,14 +53,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshSession();
+
+    // Supabase auth state change listener (browser-side token refreshes)
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        refreshSession();
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [refreshSession]);
 
   const logout = async () => {
     try {
-      await logoutAction();
+      await signOutAction();
     } finally {
       setUser(null);
-      // Hard navigation to clean up all React Server Components & client cache without hanging
       window.location.href = '/login';
     }
   };

@@ -1,134 +1,174 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { User } from "@/types/auth";
-import { AUTH_COOKIE_NAME, parseSessionToken, createSessionToken, DEMO_USERS } from "@/lib/auth-utils";
-import { tenantDb } from "@/lib/tenant-db";
+import { createClient } from "@/lib/supabase/server";
 
-/**
- * Vertical B2B Authentication:
- * Handles Profile, Member Since tracking, and Activity History
- */
-
-export async function getSession(): Promise<{ user: User | null; token: string | null }> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) {
-    return { user: null, token: null };
-  }
-
-  const parsed = parseSessionToken(token);
-  if (!parsed) {
-    return { user: null, token: null };
-  }
-
-  // Fetch full user profile including activity history from in-memory/DB store
-  const existingUser = DEMO_USERS.find((u) => u.id === parsed.id);
-  const fullUser: User = existingUser || {
-    id: parsed.id,
-    name: parsed.name,
-    email: parsed.email,
-    role: parsed.role,
-    organization: parsed.organization,
-    workspaceType: parsed.workspaceType,
-    createdAt: parsed.createdAt,
-    activityHistory: [
-      {
-        id: `act_${Date.now()}`,
-        action: 'LOGIN',
-        description: 'Active session resumed',
-        timestamp: new Date().toISOString(),
-      },
-    ],
+export interface AuthResponse {
+  success: boolean;
+  error?: string;
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+    role?: string;
   };
-
-  return { user: fullUser, token };
 }
 
-export async function requireAuth(): Promise<User> {
-  const { user } = await getSession();
+/**
+ * Server-side session verification.
+ * Does not rely on client-side state for protecting secure endpoints or user data.
+ */
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get("va_demo_mode")?.value === "true";
+
+  if (isDemo) {
+    return {
+      id: "usr_demo_technician",
+      email: "demo.technician@fieldops.io",
+      name: "Alex Rivera (Demo)",
+      role: "technician",
+      isDemo: true,
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email || "",
+    name: user.user_metadata?.name || user.email?.split("@")[0] || "Technician",
+    role: user.user_metadata?.role || "technician",
+    isDemo: false,
+  };
+}
+
+export async function requireAuth() {
+  const user = await getCurrentUser();
   if (!user) {
-    throw new Error("UNAUTHORIZED: Active session required to access this workspace.");
+    throw new Error("UNAUTHORIZED: Active Supabase session required.");
   }
   return user;
 }
 
-export async function loginAction(formData: FormData): Promise<{ success: boolean; error?: string; user?: User }> {
+export async function signInAction(formData: FormData): Promise<AuthResponse> {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
-  const nameInput = (formData.get("name") as string)?.trim();
-  const role = (formData.get("role") as string) || "technician";
-  const organizationInput = (formData.get("organization") as string)?.trim();
+  const password = formData.get("password") as string;
 
-  if (!email || !email.includes("@")) {
-    return { success: false, error: "Please enter a valid business or personal email address." };
+  if (!email || !password) {
+    return { success: false, error: "Email and password are required." };
   }
 
-  // Check if existing user in demo set
-  const existing = DEMO_USERS.find((u) => u.email.toLowerCase() === email);
-
-  let targetUser: User;
-  if (existing) {
-    targetUser = {
-      ...existing,
-      activityHistory: [
-        {
-          id: `act_${Date.now()}`,
-          action: 'LOGIN',
-          description: `Logged in as ${existing.role}`,
-          timestamp: new Date().toISOString(),
-        },
-        ...(existing.activityHistory || []),
-      ],
-    };
-  } else {
-    // New User registration
-    const isPublicEmail = email.endsWith("@gmail.com") || email.endsWith("@yahoo.com") || email.endsWith("@outlook.com");
-    const domainName = email.split("@")[1].split(".")[0];
-    const derivedOrg = organizationInput || (isPublicEmail ? "Personal Workspace" : `${domainName.toUpperCase()} Team`);
-    const displayName = nameInput || email.split("@")[0].replace(/[._-]/g, " ");
-
-    targetUser = {
-      id: `usr_${Buffer.from(email).toString("hex").slice(0, 12)}`,
-      name: displayName,
-      email: email,
-      role: (role as "technician" | "supervisor") || "technician",
-      organization: derivedOrg,
-      workspaceType: isPublicEmail && !organizationInput ? 'PERSONAL' : 'COMPANY',
-      createdAt: new Date().toISOString(), // Member since timestamp
-      activityHistory: [
-        {
-          id: `act_${Date.now()}`,
-          action: 'LOGIN',
-          description: 'Account created & workspace initialized',
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    };
-
-    // Pre-populate with initial project for smooth onboarding
-    tenantDb.createProject(
-      targetUser.id,
-      `${derivedOrg} - Site Diagnostic #1`,
-      "router_troubleshoot_site42.mp4"
-    );
-  }
-
-  const token = createSessionToken(targetUser);
-
-  const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
   });
 
-  return { success: true, user: targetUser };
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  // Clear demo mode cookie if standard auth succeeds
+  const cookieStore = await cookies();
+  cookieStore.delete("va_demo_mode");
+
+  revalidatePath("/", "layout");
+  return {
+    success: true,
+    user: {
+      id: data.user.id,
+      email: data.user.email || "",
+      name: data.user.user_metadata?.name,
+      role: data.user.user_metadata?.role,
+    },
+  };
 }
 
-export async function logoutAction(): Promise<{ success: boolean }> {
+export async function signUpAction(formData: FormData): Promise<AuthResponse> {
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
+  const password = formData.get("password") as string;
+  const name = (formData.get("name") as string)?.trim() || email.split("@")[0];
+  const role = (formData.get("role") as string) || "technician";
+
+  if (!email || !password) {
+    return { success: false, error: "Email and password are required." };
+  }
+
+  if (password.length < 6) {
+    return { success: false, error: "Password must be at least 6 characters." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name,
+        role,
+      },
+    },
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
   const cookieStore = await cookies();
-  cookieStore.delete(AUTH_COOKIE_NAME);
+  cookieStore.delete("va_demo_mode");
+
+  revalidatePath("/", "layout");
+  return {
+    success: true,
+    user: data.user
+      ? {
+          id: data.user.id,
+          email: data.user.email || "",
+          name,
+          role,
+        }
+      : undefined,
+  };
+}
+
+export async function signOutAction(): Promise<{ success: boolean }> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+
+  const cookieStore = await cookies();
+  cookieStore.delete("va_demo_mode");
+
+  revalidatePath("/", "layout");
   return { success: true };
+}
+
+export async function activateDemoSessionAction(): Promise<AuthResponse> {
+  const cookieStore = await cookies();
+  cookieStore.set("va_demo_mode", "true", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24, // 24 hours
+  });
+
+  revalidatePath("/", "layout");
+  return {
+    success: true,
+    user: {
+      id: "usr_demo_technician",
+      email: "demo.technician@fieldops.io",
+      name: "Alex Rivera (Demo)",
+      role: "technician",
+    },
+  };
 }
