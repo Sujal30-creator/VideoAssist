@@ -150,21 +150,25 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
       console.error("Warning: processing job entry failed:", jobError);
     }
 
-    // 5. Trigger FastAPI Python Worker webhook if available
+    // 5. Trigger FastAPI Python Worker (POST /api/v1/jobs) with server-only internal token
     const fastApiUrl = process.env.FASTAPI_API_URL || "http://localhost:8000";
+    const internalToken = process.env.FASTAPI_INTERNAL_TOKEN || "internal-secret-token";
     try {
-      fetch(`${fastApiUrl}/api/process-video`, {
+      fetch(`${fastApiUrl}/api/v1/jobs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${internalToken}`,
+        },
         body: JSON.stringify({
+          job_id: jobData?.id,
           video_id: videoId,
-          user_id: user.id,
           storage_path: storagePath,
-          filename: file.name,
+          user_id: user.id,
         }),
       }).catch((e) => {
         // Asynchronous webhook dispatch; Python worker can also pick up queued jobs via DB polling
-        console.log("FastAPI worker webhook dispatched (or worker will poll DB)", e.message);
+        console.log("FastAPI worker webhook dispatched (or worker will poll DB):", e.message);
       });
     } catch {
       // Non-blocking
