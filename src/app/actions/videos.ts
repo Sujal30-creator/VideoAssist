@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./auth";
-import { VideoRecord, ProcessingJobRecord, VideoFrameRecord, VideoWithJob } from "@/types/database";
+import { VideoRecord, ProcessingJobRecord, VideoWithJob } from "@/types/database";
 
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 const ALLOWED_MIME_TYPES = [
@@ -20,10 +20,6 @@ export interface UploadVideoResponse {
   job?: ProcessingJobRecord;
 }
 
-/**
- * Uploads a field-service video to the private 'field-service-videos' Supabase Storage bucket,
- * records metadata in 'videos', and initializes a 'processing_jobs' entry.
- */
 export async function uploadFieldVideoAction(formData: FormData): Promise<UploadVideoResponse> {
   try {
     const user = await requireAuth();
@@ -34,7 +30,6 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
       return { success: false, error: "No video file provided." };
     }
 
-    // 1. Validation
     if (file.size > MAX_FILE_SIZE_BYTES) {
       return {
         success: false,
@@ -52,10 +47,8 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
 
     const videoId = crypto.randomUUID();
     const cleanFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    // Format: <user_id>/<video_id>/<original_filename>
     const storagePath = `${user.id}/${videoId}/${cleanFilename}`;
 
-    // If running in demo mode without real Supabase connection
     if (user.isDemo) {
       const demoVideo: VideoRecord = {
         id: videoId,
@@ -75,7 +68,6 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-
       const demoJob: ProcessingJobRecord = {
         id: crypto.randomUUID(),
         video_id: videoId,
@@ -88,13 +80,10 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
         started_at: null,
         completed_at: null,
       };
-
       return { success: true, video: demoVideo, job: demoJob };
     }
 
     const supabase = await createClient();
-
-    // 2. Upload to Private Supabase Storage bucket: field-service-videos
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage
       .from("field-service-videos")
@@ -110,7 +99,6 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
       };
     }
 
-    // 3. Insert record into 'videos' table
     const { data: videoData, error: videoError } = await supabase
       .from("videos")
       .insert({
@@ -133,7 +121,6 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
       };
     }
 
-    // 4. Initialize row in 'processing_jobs' table
     const { data: jobData, error: jobError } = await supabase
       .from("processing_jobs")
       .insert({
@@ -150,9 +137,9 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
       console.error("Warning: processing job entry failed:", jobError);
     }
 
-    // 5. Trigger FastAPI Python Worker (POST /api/v1/jobs) with server-only internal token
     const fastApiUrl = process.env.FASTAPI_API_URL || "http://localhost:8000";
     const internalToken = process.env.FASTAPI_INTERNAL_TOKEN || "internal-secret-token";
+
     try {
       fetch(`${fastApiUrl}/api/v1/jobs`, {
         method: "POST",
@@ -167,7 +154,6 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
           user_id: user.id,
         }),
       }).catch((e) => {
-        // Asynchronous webhook dispatch; Python worker can also pick up queued jobs via DB polling
         console.log("FastAPI worker webhook dispatched (or worker will poll DB):", e.message);
       });
     } catch {
@@ -188,16 +174,11 @@ export async function uploadFieldVideoAction(formData: FormData): Promise<Upload
   }
 }
 
-/**
- * Retrieves all videos owned by the authenticated user along with their processing jobs.
- * Enforces server-side authentication and RLS.
- */
 export async function getUserVideosAction(): Promise<VideoWithJob[]> {
   try {
     const user = await requireAuth();
 
     if (user.isDemo) {
-      // In demo mode, return mock video item with ready state
       return [
         {
           id: "vid_demo_router_42",
@@ -235,7 +216,6 @@ export async function getUserVideosAction(): Promise<VideoWithJob[]> {
     }
 
     const supabase = await createClient();
-
     const { data: videos, error } = await supabase
       .from("videos")
       .select(`
@@ -257,27 +237,22 @@ export async function getUserVideosAction(): Promise<VideoWithJob[]> {
   }
 }
 
-/**
- * Creates a signed playback URL for a private video.
- * Enforces that videos in 'field-service-videos' are never made public.
- */
 export async function getSignedVideoUrlAction(storagePath: string): Promise<string | null> {
   try {
     const user = await requireAuth();
 
-    // Verify storage path belongs to current user
     if (!storagePath.startsWith(`${user.id}/`) && !user.isDemo) {
       throw new Error("Unauthorized storage path access.");
     }
 
     if (user.isDemo) {
-      return null; // Uses local mock video player for demo
+      return null;
     }
 
     const supabase = await createClient();
     const { data, error } = await supabase.storage
       .from("field-service-videos")
-      .createSignedUrl(storagePath, 3600); // 1-hour expiration
+      .createSignedUrl(storagePath, 3600);
 
     if (error || !data) {
       console.error("Failed to generate signed video URL:", error);
@@ -291,12 +266,10 @@ export async function getSignedVideoUrlAction(storagePath: string): Promise<stri
   }
 }
 
-/**
- * Creates signed URLs for extracted keyframes from 'video-artifacts'.
- */
 export async function getSignedArtifactUrlAction(storagePath: string): Promise<string | null> {
   try {
     const user = await requireAuth();
+
     if (!storagePath.startsWith(`${user.id}/`) && !user.isDemo) {
       throw new Error("Unauthorized artifact path access.");
     }

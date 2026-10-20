@@ -15,10 +15,6 @@ export interface AuthResponse {
   };
 }
 
-/**
- * Server-side session verification.
- * Does not rely on client-side state for protecting secure endpoints or user data.
- */
 export async function getCurrentUser() {
   const cookieStore = await cookies();
   const isDemo = cookieStore.get("va_demo_mode")?.value === "true";
@@ -78,11 +74,10 @@ export async function signInAction(formData: FormData): Promise<AuthResponse> {
     return { success: false, error: error.message };
   }
 
-  // Clear demo mode cookie if standard auth succeeds
   const cookieStore = await cookies();
   cookieStore.delete("va_demo_mode");
-
   revalidatePath("/", "layout");
+
   return {
     success: true,
     user: {
@@ -126,17 +121,17 @@ export async function signUpAction(formData: FormData): Promise<AuthResponse> {
 
   const cookieStore = await cookies();
   cookieStore.delete("va_demo_mode");
-
   revalidatePath("/", "layout");
+
   return {
     success: true,
     user: data.user
       ? {
-          id: data.user.id,
-          email: data.user.email || "",
-          name,
-          role,
-        }
+        id: data.user.id,
+        email: data.user.email || "",
+        name,
+        role,
+      }
       : undefined,
   };
 }
@@ -144,10 +139,8 @@ export async function signUpAction(formData: FormData): Promise<AuthResponse> {
 export async function signOutAction(): Promise<{ success: boolean }> {
   const supabase = await createClient();
   await supabase.auth.signOut();
-
   const cookieStore = await cookies();
   cookieStore.delete("va_demo_mode");
-
   revalidatePath("/", "layout");
   return { success: true };
 }
@@ -158,9 +151,8 @@ export async function activateDemoSessionAction(): Promise<AuthResponse> {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
-    maxAge: 60 * 60 * 24, // 24 hours
+    maxAge: 60 * 60 * 24,
   });
-
   revalidatePath("/", "layout");
   return {
     success: true,

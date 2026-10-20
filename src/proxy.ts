@@ -17,7 +17,6 @@ export async function proxy(request: NextRequest) {
   const supabaseAnonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-  // Support local demo bypass if explicitly enabled or if demo cookie is set
   const demoCookie = request.cookies.get('va_demo_mode')?.value;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -53,17 +52,14 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/videos');
 
-  // If user is demoing via demo cookie, allow through
   const isDemoActive = demoCookie === 'true';
 
-  // If user is unauthenticated and visiting a protected route -> redirect to /login
   if (isProtectedPath && !user && !isDemoActive) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // If user is already authenticated and visits auth pages -> redirect to /
   if (isAuthPage && user) {
     return NextResponse.redirect(new URL('/', request.url));
   }

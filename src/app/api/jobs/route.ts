@@ -1,24 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-/**
- * Server-side Next.js Route Handler to initiate video processing with Python FastAPI worker.
- * Enforces server-only authentication and internal token authorization.
- *
- * Sequence:
- * 1. Verify the user's session.
- * 2. Verify that the user owns the requested video.
- * 3. Create the processing-job record.
- * 4. Mark the video as processing.
- * 5. Call the FastAPI endpoint POST /api/v1/jobs with job_id and video_id using server-only internal token.
- * 6. Handle API errors and update the job/video state where appropriate.
- * 7. Return the created job status to the client.
- */
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // 1. Verify user's session
     const {
       data: { user },
       error: authError,
@@ -41,7 +27,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Verify user ownership of the video
     const { data: video, error: videoError } = await supabase
       .from('videos')
       .select('*')
@@ -56,7 +41,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Create processing-job record in Supabase DB
     const jobId = crypto.randomUUID();
     const { data: job, error: jobError } = await supabase
       .from('processing_jobs')
@@ -78,13 +62,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Mark video as processing
     await supabase
       .from('videos')
       .update({ status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', video.id);
 
-    // 5. Call FastAPI endpoint POST /api/v1/jobs with server-only internal token
     const fastApiUrl = process.env.FASTAPI_API_URL || 'http://localhost:8000';
     const internalToken = process.env.FASTAPI_INTERNAL_TOKEN || 'internal-secret-token';
 
@@ -113,14 +95,11 @@ export async function POST(request: Request) {
         fastApiError = `FastAPI worker responded with ${response.status}: ${errorText}`;
       }
     } catch (err: unknown) {
-      // Worker offline or unreachable
       fastApiError = err instanceof Error ? err.message : 'FastAPI worker connection failed';
     }
 
-    // 6. Handle API errors: if FastAPI failed immediately, record details
     if (fastApiError && !fastApiDispatched) {
       console.warn('FastAPI worker notification status:', fastApiError);
-      // We keep status as queued if the worker polls the DB, or record notice
       await supabase
         .from('processing_jobs')
         .update({
@@ -129,7 +108,6 @@ export async function POST(request: Request) {
         .eq('id', job.id);
     }
 
-    // 7. Let UI read the persisted job status
     return NextResponse.json({
       success: true,
       job_id: job.id,
