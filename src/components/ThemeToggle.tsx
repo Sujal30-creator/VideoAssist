@@ -10,7 +10,8 @@ export function ThemeToggle() {
 
   // Avoid hydration mismatch by waiting until mounted
   React.useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!mounted) {

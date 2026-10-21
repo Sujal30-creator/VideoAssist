@@ -1,4 +1,4 @@
-import { User, ActivityLog } from '@/types/auth';
+import { User } from '@/types/auth';
 
 export const AUTH_COOKIE_NAME = 'va_session';
 

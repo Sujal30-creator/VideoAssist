@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+// import Link from "next/link";
 import { signInAction, signUpAction, activateDemoSessionAction } from "@/app/actions/auth";
 import { useAuth } from "@/components/AuthProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 function LoginForm() {
-  const router = useRouter();
+  // const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const { refreshSession } = useAuth();
@@ -97,13 +97,13 @@ function LoginForm() {
       {/* Main Login / Register Card */}
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-lg bg-surface border border-border rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-300">
-          
+
           {/* Subtle glowing accent background */}
           <div className="absolute -top-24 -right-24 w-52 h-52 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-52 h-52 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative">
-            
+
             {/* Header Badge & Title */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
@@ -129,11 +129,10 @@ function LoginForm() {
                     setError(null);
                     setSuccessMsg(null);
                   }}
-                  className={`relative z-10 px-3.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
-                    mode === "signin"
-                      ? "text-primary-foreground font-semibold"
-                      : "text-text-muted hover:text-text-primary"
-                  }`}
+                  className={`relative z-10 px-3.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${mode === "signin"
+                    ? "text-primary-foreground font-semibold"
+                    : "text-text-muted hover:text-text-primary"
+                    }`}
                 >
                   Sign In
                 </button>
@@ -144,18 +143,16 @@ function LoginForm() {
                     setError(null);
                     setSuccessMsg(null);
                   }}
-                  className={`relative z-10 px-3.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
-                    mode === "signup"
-                      ? "text-primary-foreground font-semibold"
-                      : "text-text-muted hover:text-text-primary"
-                  }`}
+                  className={`relative z-10 px-3.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${mode === "signup"
+                    ? "text-primary-foreground font-semibold"
+                    : "text-text-muted hover:text-text-primary"
+                    }`}
                 >
                   Sign Up
                 </button>
                 <div
-                  className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-primary rounded-lg shadow-sm transition-transform duration-300 ease-out ${
-                    mode === "signin" ? "left-1 translate-x-0" : "left-1 translate-x-full"
-                  }`}
+                  className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-primary rounded-lg shadow-sm transition-transform duration-300 ease-out ${mode === "signin" ? "left-1 translate-x-0" : "left-1 translate-x-full"
+                    }`}
                 />
               </div>
             </div>
@@ -201,7 +198,7 @@ function LoginForm() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              
+
               {/* Full Name field (in signup mode) */}
               {mode === "signup" && (
                 <div className="animate-in fade-in duration-200">

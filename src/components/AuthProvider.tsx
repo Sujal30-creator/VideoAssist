@@ -1,5 +1,5 @@
 'use client';
-
+import { useRouter } from 'next/navigation';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User } from '@/types/auth';
 import { getCurrentUser, signOutAction } from '@/app/actions/auth';
@@ -16,10 +16,11 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   refreshSession: async () => null,
-  logout: async () => {},
+  logout: async () => { },
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refreshSession();
+    const timer = setTimeout(() => refreshSession(), 0);
+
 
     // Supabase auth state change listener (browser-side token refreshes)
     const supabase = createClient();
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       subscription.unsubscribe();
+      clearTimeout(timer);
     };
   }, [refreshSession]);
 
@@ -76,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOutAction();
     } finally {
       setUser(null);
-      window.location.href = '/login';
+      router.push('/login');;
     }
   };
 

@@ -9,7 +9,6 @@ import {
   Type,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   ListFilter,
   LayoutGrid,
   Move,
@@ -75,7 +74,7 @@ export default function EventTimeline({
     <div className="mt-6 flex flex-col gap-6 transition-theme">
       {/* Timeline Controls & Visualization Wrapper */}
       <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-xl transition-theme">
-        
+
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 border-b border-border pb-4">
           <div>
@@ -92,22 +91,20 @@ export default function EventTimeline({
             <div className="flex bg-surface-secondary p-1 rounded-xl border border-border text-xs">
               <button
                 onClick={() => setViewMode('GRAPH')}
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'GRAPH'
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'GRAPH'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'text-text-muted hover:text-text-primary'
+                  }`}
                 title="Staircase Graph View"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('LIST')}
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'LIST'
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'LIST'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'text-text-muted hover:text-text-primary'
+                  }`}
                 title="Structured Event Feed"
               >
                 <ListFilter className="w-4 h-4" />
@@ -162,7 +159,7 @@ export default function EventTimeline({
         {/* View Mode 1: 2D Scrollable Sequential Staircase */}
         {viewMode === 'GRAPH' && (
           <div className="relative">
-            
+
             {/* Scroll Container: Fixed 380px height with BOTH horizontal and vertical scroll! */}
             <div
               ref={scrollContainerRef}
@@ -211,11 +208,10 @@ export default function EventTimeline({
                     return (
                       <div
                         key={event.id}
-                        className={`absolute rounded-lg border flex items-center px-3 font-medium cursor-pointer transition-all duration-200 shadow-xs ${
-                          isSelected
-                            ? 'bg-primary text-primary-foreground border-primary-hover z-20 scale-[1.02] shadow-md ring-2 ring-primary/30'
-                            : 'bg-surface-elevated text-text-primary border-border hover:bg-surface-secondary hover:border-primary/50 z-10'
-                        }`}
+                        className={`absolute rounded-lg border flex items-center px-3 font-medium cursor-pointer transition-all duration-200 shadow-xs ${isSelected
+                          ? 'bg-primary text-primary-foreground border-primary-hover z-20 scale-[1.02] shadow-md ring-2 ring-primary/30'
+                          : 'bg-surface-elevated text-text-primary border-border hover:bg-surface-secondary hover:border-primary/50 z-10'
+                          }`}
                         style={{
                           left: `${leftPercent}%`,
                           width: `${widthPercent}%`,
@@ -228,9 +224,8 @@ export default function EventTimeline({
                       >
                         <span className="truncate mr-2 font-medium">{event.description}</span>
                         <span
-                          className={`ml-auto font-mono shrink-0 opacity-80 ${
-                            isSelected ? 'text-primary-foreground' : 'text-text-muted'
-                          }`}
+                          className={`ml-auto font-mono shrink-0 opacity-80 ${isSelected ? 'text-primary-foreground' : 'text-text-muted'
+                            }`}
                           style={{ fontSize: `${Math.max(10 * zoomLevel, 8.5)}px` }}
                         >
                           {formatTime(segment.startTimeMs)}
@@ -256,7 +251,7 @@ export default function EventTimeline({
         {/* View Mode 2: Compact Structured Feed View */}
         {viewMode === 'LIST' && (
           <div className="space-y-2 max-h-84 overflow-y-auto pr-1">
-            {events.map((event, idx) => {
+            {events.map((event) => {
               const segment = segments.find((s) => s.id === event.segmentId);
               const isSelected = selectedEventId === event.id;
 
@@ -264,11 +259,10 @@ export default function EventTimeline({
                 <div
                   key={event.id}
                   onClick={() => segment && handleEventSelect(event.id, segment.startTimeMs)}
-                  className={`p-3 rounded-xl border flex items-center justify-between gap-4 cursor-pointer transition-all ${
-                    isSelected
-                      ? 'border-primary bg-primary-soft/30 shadow-xs'
-                      : 'border-border bg-surface hover:border-border/80 hover:bg-surface-secondary'
-                  }`}
+                  className={`p-3 rounded-xl border flex items-center justify-between gap-4 cursor-pointer transition-all ${isSelected
+                    ? 'border-primary bg-primary-soft/30 shadow-xs'
+                    : 'border-border bg-surface hover:border-border/80 hover:bg-surface-secondary'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-xs font-bold text-primary px-2.5 py-1 rounded-md bg-background border border-border">
@@ -326,9 +320,8 @@ export default function EventTimeline({
                   return (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          rel.relationType === 'BEFORE' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
-                        }`}
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${rel.relationType === 'BEFORE' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
+                          }`}
                       >
                         {rel.relationType}
                       </span>

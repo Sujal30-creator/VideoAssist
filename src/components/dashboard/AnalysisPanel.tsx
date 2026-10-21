@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Mic, Type, Activity, CheckCircle2, Loader2, FastForward, Clock } from 'lucide-react';
+import { Activity, CheckCircle2, Loader2, Clock } from 'lucide-react';
 import { ProcessingStage, Event } from '@/types';
 
 interface AnalysisPanelProps {
@@ -9,7 +9,7 @@ interface AnalysisPanelProps {
   events: Event[];
 }
 
-export default function AnalysisPanel({ appState, stages, activeStageIndex, events }: AnalysisPanelProps) {
+export default function AnalysisPanel({ appState, stages, activeStageIndex }: AnalysisPanelProps) {
   const isReady = appState === 'ready';
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -18,9 +18,11 @@ export default function AnalysisPanel({ appState, stages, activeStageIndex, even
     if (appState === 'processing') {
       timer = setInterval(() => setElapsedMs(prev => prev + 100), 100);
     } else if (appState === 'ready') {
-      setElapsedMs(stages.length * 1200); // Fixed time for demo completion
+      const timer = setTimeout(() => setElapsedMs(stages.length * 1200), 0);
+      return () => clearTimeout(timer);
     } else {
-      setElapsedMs(0);
+      const timer = setTimeout(() => setElapsedMs(0), 0);
+      return () => clearTimeout(timer);
     }
     return () => clearInterval(timer);
   }, [appState, stages.length]);
@@ -40,7 +42,7 @@ export default function AnalysisPanel({ appState, stages, activeStageIndex, even
 
   return (
     <div className="bg-surface rounded-2xl p-6 border border-border shadow-xl h-full flex flex-col relative overflow-hidden transition-theme">
-      
+
       {/* Demo Warning */}
       <div className="absolute top-0 right-0 bg-warning/10 text-warning text-[10px] uppercase font-bold px-3 py-1 border-b border-l border-warning/20 rounded-bl-lg tracking-wider">
         Demo / Simulated AI Processing
@@ -56,7 +58,7 @@ export default function AnalysisPanel({ appState, stages, activeStageIndex, even
           </div>
         )}
       </div>
-      
+
       {/* Processing Pipeline */}
       {(appState === 'processing' || appState === 'ready') && (
         <div className="space-y-4 mb-6">
@@ -83,11 +85,11 @@ export default function AnalysisPanel({ appState, stages, activeStageIndex, even
                   </div>
                   <span className="text-xs font-mono text-text-muted">{progress}%</span>
                 </div>
-                
+
                 {/* Mini progress bar */}
                 <div className="h-1 w-full bg-surface-elevated rounded-full overflow-hidden ml-7 w-[calc(100%-1.75rem)] border border-border">
-                  <div 
-                    className={`h-full ${isPast ? 'bg-success' : 'bg-primary'}`} 
+                  <div
+                    className={`h-full ${isPast ? 'bg-success' : 'bg-primary'}`}
                     style={{ width: `${progress}%` }}
                   />
                 </div>

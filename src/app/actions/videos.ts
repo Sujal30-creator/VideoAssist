@@ -1,17 +1,21 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+// import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./auth";
-import { VideoRecord, ProcessingJobRecord, VideoWithJob } from "@/types/database";
+import {
+  VideoRecord,
+  ProcessingJobRecord,
+  VideoWithJob,
+} from "@/types/database";
 
-const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
-const ALLOWED_MIME_TYPES = [
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
-  "video/x-matroska",
-];
+// const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+// const ALLOWED_MIME_TYPES = [
+//   "video/mp4",
+//   "video/quicktime",
+//   "video/webm",
+//   "video/x-matroska",
+// ];
 
 export interface UploadVideoResponse {
   success: boolean;
@@ -20,159 +24,159 @@ export interface UploadVideoResponse {
   job?: ProcessingJobRecord;
 }
 
-export async function uploadFieldVideoAction(formData: FormData): Promise<UploadVideoResponse> {
-  try {
-    const user = await requireAuth();
-    const file = formData.get("file") as File;
-    const title = (formData.get("title") as string)?.trim() || file?.name || "Field Inspection Video";
+// export async function uploadFieldVideoAction(formData: FormData): Promise<UploadVideoResponse> {
+//   try {
+//     const user = await requireAuth();
+//     const file = formData.get("file") as File;
+//     const title = (formData.get("title") as string)?.trim() || file?.name || "Field Inspection Video";
 
-    if (!file) {
-      return { success: false, error: "No video file provided." };
-    }
+//     if (!file) {
+//       return { success: false, error: "No video file provided." };
+//     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return {
-        success: false,
-        error: `File size exceeds the 100 MB limit (${(file.size / (1024 * 1024)).toFixed(1)} MB).`,
-      };
-    }
+//     if (file.size > MAX_FILE_SIZE_BYTES) {
+//       return {
+//         success: false,
+//         error: `File size exceeds the 100 MB limit (${(file.size / (1024 * 1024)).toFixed(1)} MB).`,
+//       };
+//     }
 
-    const mimeType = file.type || "video/mp4";
-    if (!ALLOWED_MIME_TYPES.includes(mimeType) && !file.name.match(/\.(mp4|mov|webm|mkv)$/i)) {
-      return {
-        success: false,
-        error: `Unsupported video format. Allowed formats: MP4, MOV, WebM. Received: ${mimeType}`,
-      };
-    }
+//     const mimeType = file.type || "video/mp4";
+//     if (!ALLOWED_MIME_TYPES.includes(mimeType) && !file.name.match(/\.(mp4|mov|webm|mkv)$/i)) {
+//       return {
+//         success: false,
+//         error: `Unsupported video format. Allowed formats: MP4, MOV, WebM. Received: ${mimeType}`,
+//       };
+//     }
 
-    const videoId = crypto.randomUUID();
-    const cleanFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storagePath = `${user.id}/${videoId}/${cleanFilename}`;
+//     const videoId = crypto.randomUUID();
+//     const cleanFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+//     const storagePath = `${user.id}/${videoId}/${cleanFilename}`;
 
-    if (user.isDemo) {
-      const demoVideo: VideoRecord = {
-        id: videoId,
-        user_id: user.id,
-        title,
-        original_filename: file.name,
-        mime_type: mimeType,
-        file_size_bytes: file.size,
-        storage_path: storagePath,
-        status: "uploaded",
-        duration_seconds: 180,
-        width: 1920,
-        height: 1080,
-        fps: 30,
-        frame_count: 5400,
-        error_message: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      const demoJob: ProcessingJobRecord = {
-        id: crypto.randomUUID(),
-        video_id: videoId,
-        user_id: user.id,
-        status: "queued",
-        stage: "Queued for processing",
-        progress: 0,
-        error_message: null,
-        created_at: new Date().toISOString(),
-        started_at: null,
-        completed_at: null,
-      };
-      return { success: true, video: demoVideo, job: demoJob };
-    }
+//     if (user.isDemo) {
+//       const demoVideo: VideoRecord = {
+//         id: videoId,
+//         user_id: user.id,
+//         title,
+//         original_filename: file.name,
+//         mime_type: mimeType,
+//         file_size_bytes: file.size,
+//         storage_path: storagePath,
+//         status: "uploaded",
+//         duration_seconds: 180,
+//         width: 1920,
+//         height: 1080,
+//         fps: 30,
+//         frame_count: 5400,
+//         error_message: null,
+//         created_at: new Date().toISOString(),
+//         updated_at: new Date().toISOString(),
+//       };
+//       const demoJob: ProcessingJobRecord = {
+//         id: crypto.randomUUID(),
+//         video_id: videoId,
+//         user_id: user.id,
+//         status: "queued",
+//         stage: "Queued for processing",
+//         progress: 0,
+//         error_message: null,
+//         created_at: new Date().toISOString(),
+//         started_at: null,
+//         completed_at: null,
+//       };
+//       return { success: true, video: demoVideo, job: demoJob };
+//     }
 
-    const supabase = await createClient();
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await supabase.storage
-      .from("field-service-videos")
-      .upload(storagePath, buffer, {
-        contentType: mimeType,
-        upsert: false,
-      });
+//     const supabase = await createClient();
+//     const buffer = Buffer.from(await file.arrayBuffer());
+//     const { error: uploadError } = await supabase.storage
+//       .from("field-service-videos")
+//       .upload(storagePath, buffer, {
+//         contentType: mimeType,
+//         upsert: false,
+//       });
 
-    if (uploadError) {
-      return {
-        success: false,
-        error: `Storage upload failed: ${uploadError.message}`,
-      };
-    }
+//     if (uploadError) {
+//       return {
+//         success: false,
+//         error: `Storage upload failed: ${uploadError.message}`,
+//       };
+//     }
 
-    const { data: videoData, error: videoError } = await supabase
-      .from("videos")
-      .insert({
-        id: videoId,
-        user_id: user.id,
-        title,
-        original_filename: file.name,
-        mime_type: mimeType,
-        file_size_bytes: file.size,
-        storage_path: storagePath,
-        status: "uploaded",
-      })
-      .select()
-      .single();
+//     const { data: videoData, error: videoError } = await supabase
+//       .from("videos")
+//       .insert({
+//         id: videoId,
+//         user_id: user.id,
+//         title,
+//         original_filename: file.name,
+//         mime_type: mimeType,
+//         file_size_bytes: file.size,
+//         storage_path: storagePath,
+//         status: "uploaded",
+//       })
+//       .select()
+//       .single();
 
-    if (videoError || !videoData) {
-      return {
-        success: false,
-        error: `Failed to insert video record: ${videoError?.message || "Unknown database error"}`,
-      };
-    }
+//     if (videoError || !videoData) {
+//       return {
+//         success: false,
+//         error: `Failed to insert video record: ${videoError?.message || "Unknown database error"}`,
+//       };
+//     }
 
-    const { data: jobData, error: jobError } = await supabase
-      .from("processing_jobs")
-      .insert({
-        video_id: videoId,
-        user_id: user.id,
-        status: "queued",
-        stage: "Queued for multimodal analysis",
-        progress: 0,
-      })
-      .select()
-      .single();
+//     const { data: jobData, error: jobError } = await supabase
+//       .from("processing_jobs")
+//       .insert({
+//         video_id: videoId,
+//         user_id: user.id,
+//         status: "queued",
+//         stage: "Queued for multimodal analysis",
+//         progress: 0,
+//       })
+//       .select()
+//       .single();
 
-    if (jobError) {
-      console.error("Warning: processing job entry failed:", jobError);
-    }
+//     if (jobError) {
+//       console.error("Warning: processing job entry failed:", jobError);
+//     }
 
-    const fastApiUrl = process.env.FASTAPI_API_URL || "http://localhost:8000";
-    const internalToken = process.env.FASTAPI_INTERNAL_TOKEN || "internal-secret-token";
+//     const fastApiUrl = process.env.FASTAPI_API_URL || "http://localhost:8000";
+//     const internalToken = process.env.FASTAPI_INTERNAL_TOKEN || "internal-secret-token";
 
-    try {
-      fetch(`${fastApiUrl}/api/v1/jobs`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${internalToken}`,
-        },
-        body: JSON.stringify({
-          job_id: jobData?.id,
-          video_id: videoId,
-          storage_path: storagePath,
-          user_id: user.id,
-        }),
-      }).catch((e) => {
-        console.log("FastAPI worker webhook dispatched (or worker will poll DB):", e.message);
-      });
-    } catch {
-      // Non-blocking
-    }
+//     try {
+//       fetch(`${fastApiUrl}/api/v1/jobs`, {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${internalToken}`,
+//         },
+//         body: JSON.stringify({
+//           job_id: jobData?.id,
+//           video_id: videoId,
+//           storage_path: storagePath,
+//           user_id: user.id,
+//         }),
+//       }).catch((e) => {
+//         console.log("FastAPI worker webhook dispatched (or worker will poll DB):", e.message);
+//       });
+//     } catch {
+//       // Non-blocking
+//     }
 
-    revalidatePath("/", "layout");
-    return {
-      success: true,
-      video: videoData as VideoRecord,
-      job: jobData as ProcessingJobRecord,
-    };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Unexpected error during upload",
-    };
-  }
-}
+//     revalidatePath("/", "layout");
+//     return {
+//       success: true,
+//       video: videoData as VideoRecord,
+//       job: jobData as ProcessingJobRecord,
+//     };
+//   } catch (err: unknown) {
+//     return {
+//       success: false,
+//       error: err instanceof Error ? err.message : "Unexpected error during upload",
+//     };
+//   }
+// }
 
 export async function getUserVideosAction(): Promise<VideoWithJob[]> {
   try {
@@ -218,11 +222,13 @@ export async function getUserVideosAction(): Promise<VideoWithJob[]> {
     const supabase = await createClient();
     const { data: videos, error } = await supabase
       .from("videos")
-      .select(`
+      .select(
+        `
         *,
         jobs:processing_jobs(*),
         frames:video_frames(*)
-      `)
+      `,
+      )
       .order("created_at", { ascending: false });
 
     if (error || !videos) {
@@ -237,7 +243,9 @@ export async function getUserVideosAction(): Promise<VideoWithJob[]> {
   }
 }
 
-export async function getSignedVideoUrlAction(storagePath: string): Promise<string | null> {
+export async function getSignedVideoUrlAction(
+  storagePath: string,
+): Promise<string | null> {
   try {
     const user = await requireAuth();
 
@@ -266,7 +274,9 @@ export async function getSignedVideoUrlAction(storagePath: string): Promise<stri
   }
 }
 
-export async function getSignedArtifactUrlAction(storagePath: string): Promise<string | null> {
+export async function getSignedArtifactUrlAction(
+  storagePath: string,
+): Promise<string | null> {
   try {
     const user = await requireAuth();
 

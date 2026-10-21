@@ -12,7 +12,7 @@ import { getUserVideosAction, getSignedVideoUrlAction } from "@/app/actions/vide
 import { VideoWithJob } from "@/types/database";
 import { mockVideo, mockStages, mockEvents, mockSegments } from "@/data/mockData";
 import {
-  FolderKanban,
+  // FolderKanban,
   ShieldCheck,
   Plus,
   X,
@@ -42,8 +42,8 @@ export default function WorkspaceDashboard() {
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Demo state
-  const [demoAppState, setDemoAppState] = useState<"idle" | "processing" | "ready">("ready");
-  const [demoActiveStage, setDemoActiveStage] = useState(mockStages.length - 1);
+  const [demoAppState] = useState<"idle" | "processing" | "ready">("ready");
+  const [demoActiveStage] = useState(mockStages.length - 1);
   const [demoCurrentTimeMs, setDemoCurrentTimeMs] = useState(0);
 
   // Fetch real videos & jobs from Supabase
@@ -76,7 +76,8 @@ export default function WorkspaceDashboard() {
 
   useEffect(() => {
     if (user) {
-      loadSupabaseVideos();
+      const timer = setTimeout(() => loadSupabaseVideos(), 0);
+      return () => clearTimeout(timer);
     }
   }, [user, loadSupabaseVideos]);
 
@@ -91,20 +92,20 @@ export default function WorkspaceDashboard() {
   };
 
   // Demo simulation pipeline progression
-  const handleStartDemoAnalysis = () => {
-    setDemoAppState("processing");
-    setDemoActiveStage(0);
-    let stage = 0;
-    const interval = setInterval(() => {
-      stage++;
-      if (stage >= mockStages.length) {
-        clearInterval(interval);
-        setTimeout(() => setDemoAppState("ready"), 600);
-      } else {
-        setDemoActiveStage(stage);
-      }
-    }, 1000);
-  };
+  // const handleStartDemoAnalysis = () => {
+  //   setDemoAppState("processing");
+  //   setDemoActiveStage(0);
+  //   let stage = 0;
+  //   const interval = setInterval(() => {
+  //     stage++;
+  //     if (stage >= mockStages.length) {
+  //       clearInterval(interval);
+  //       setTimeout(() => setDemoAppState("ready"), 600);
+  //     } else {
+  //       setDemoActiveStage(stage);
+  //     }
+  //   }, 1000);
+  // };
 
   const handleDemoEventClick = (startTimeMs: number) => {
     setDemoCurrentTimeMs(startTimeMs);
@@ -135,7 +136,7 @@ export default function WorkspaceDashboard() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        
+
         {/* Workspace Identity Banner */}
         <div className="bg-surface border border-border rounded-2xl p-6 transition-theme shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -197,11 +198,10 @@ export default function WorkspaceDashboard() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab("supabase")}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "supabase"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-surface hover:bg-surface-secondary text-text-muted border border-border"
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === "supabase"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-surface hover:bg-surface-secondary text-text-muted border border-border"
+                }`}
             >
               <Database className="w-3.5 h-3.5" />
               <span>Supabase Records ({supabaseVideos.length})</span>
@@ -209,11 +209,10 @@ export default function WorkspaceDashboard() {
 
             <button
               onClick={() => setActiveTab("demo")}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "demo"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-surface hover:bg-surface-secondary text-text-muted border border-border"
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === "demo"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-surface hover:bg-surface-secondary text-text-muted border border-border"
+                }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>Interactive Demo (Site 42 Router)</span>
@@ -273,23 +272,21 @@ export default function WorkspaceDashboard() {
                       <div
                         key={vid.id}
                         onClick={() => handleSelectVideo(vid)}
-                        className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary-soft/30 shadow-md ring-1 ring-primary/40"
-                            : "border-border bg-surface hover:border-border/80 hover:bg-surface-secondary"
-                        }`}
+                        className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${isSelected
+                          ? "border-primary bg-primary-soft/30 shadow-md ring-1 ring-primary/40"
+                          : "border-border bg-surface hover:border-border/80 hover:bg-surface-secondary"
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span
-                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
-                              vid.status === "ready"
-                                ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                                : vid.status === "processing"
+                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${vid.status === "ready"
+                              ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                              : vid.status === "processing"
                                 ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                                 : vid.status === "failed"
-                                ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                                : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
-                            }`}
+                                  ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                                  : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                              }`}
                           >
                             {vid.status}
                           </span>

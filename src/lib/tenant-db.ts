@@ -1,4 +1,3 @@
-import { User } from '@/types/auth';
 import { Video, Event, TemporalSegment, ProcessingStage } from '@/types';
 import { mockVideo, mockStages, mockEvents, mockSegments } from '@/data/mockData';
 

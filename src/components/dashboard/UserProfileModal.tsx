@@ -13,10 +13,10 @@ import {
   PlayCircle,
   Search,
   LogIn,
-  Filter,
-  Check,
-  Tag,
-  ArrowUpRight,
+  // Filter,
+  // Check,
+  // Tag,
+  // ArrowUpRight,
 } from 'lucide-react';
 
 interface UserProfileModalProps {
@@ -93,11 +93,11 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
   });
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
       onClick={onClose}
     >
-      <div 
+      <div
         className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 animate-in zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
@@ -128,7 +128,7 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
 
         {/* Profile Details & Metadata */}
         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-          
+
           {/* Quick Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3.5 rounded-xl bg-surface-secondary/60 border border-border">
@@ -176,11 +176,10 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
                 <button
                   key={type}
                   onClick={() => setFilterType(type)}
-                  className={`px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-medium whitespace-nowrap ${
-                    filterType === type
-                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                      : 'bg-surface-secondary border-border text-text-secondary hover:text-text-primary hover:bg-surface'
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-medium whitespace-nowrap ${filterType === type
+                    ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                    : 'bg-surface-secondary border-border text-text-secondary hover:text-text-primary hover:bg-surface'
+                    }`}
                 >
                   {type === 'ALL' && 'All Activity'}
                   {type === 'LOGIN' && 'Logins'}
