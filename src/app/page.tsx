@@ -7,12 +7,20 @@ import AnalysisPanel from "@/components/dashboard/AnalysisPanel";
 import EventTimeline from "@/components/timeline/EventTimeline";
 import SearchPanel from "@/components/query/SearchPanel";
 import UploadArea from "@/components/dashboard/UploadArea";
+import ProcessingStatusPanel from "@/components/processing/ProcessingStatusPanel";
+import TranscriptViewer from "@/components/processing/TranscriptViewer";
+import OcrDetectionsViewer from "@/components/processing/OcrDetectionsViewer";
 import { useAuth } from "@/components/AuthProvider";
+import { useProcessingStatus } from "@/hooks/useProcessingStatus";
 import { getUserVideosAction, getSignedVideoUrlAction } from "@/app/actions/videos";
-import { VideoWithJob } from "@/types/database";
+import {
+  getVideoTranscriptsAction,
+  getVideoOcrDetectionsAction,
+  retryProcessingAction,
+} from "@/app/actions/processing";
+import { VideoWithJob, TranscriptRecord, OcrDetectionRecord } from "@/types/database";
 import { mockVideo, mockStages, mockEvents, mockSegments } from "@/data/mockData";
 import {
-  // FolderKanban,
   ShieldCheck,
   Plus,
   X,
@@ -26,7 +34,11 @@ import {
   Film,
   Image as ImageIcon,
   HardDrive,
+  MessageSquareText,
+  ScanText,
 } from "lucide-react";
+
+type ResultsTab = "status" | "transcript" | "ocr";
 
 export default function WorkspaceDashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -41,10 +53,43 @@ export default function WorkspaceDashboard() {
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  // Phase 2: Results state
+  const [resultsTab, setResultsTab] = useState<ResultsTab>("status");
+  const [transcripts, setTranscripts] = useState<TranscriptRecord[]>([]);
+  const [ocrDetections, setOcrDetections] = useState<OcrDetectionRecord[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
   // Demo state
   const [demoAppState] = useState<"idle" | "processing" | "ready">("ready");
   const [demoActiveStage] = useState(mockStages.length - 1);
   const [demoCurrentTimeMs, setDemoCurrentTimeMs] = useState(0);
+
+  // Get the latest job for the selected video
+  const latestJob = selectedSupabaseVideo?.jobs?.[0];
+
+  // Auto-polling hook for active processing jobs
+  const {
+    job: polledJob,
+    isPolling,
+  } = useProcessingStatus({
+    jobId: latestJob?.id,
+    intervalMs: 4000,
+    enabled:
+      !!latestJob &&
+      latestJob.status !== "completed" &&
+      latestJob.status !== "failed",
+    onComplete: () => {
+      // Refresh video list and results when processing completes
+      loadSupabaseVideos(selectedSupabaseVideo?.id);
+      if (selectedSupabaseVideo) {
+        loadResultsForVideo(selectedSupabaseVideo.id);
+      }
+    },
+  });
+
+  // Use polled job data if available, otherwise use the static job from the video record
+  const displayJob = polledJob || latestJob || null;
 
   // Fetch real videos & jobs from Supabase
   const loadSupabaseVideos = useCallback(async (selectId?: string) => {
@@ -74,6 +119,23 @@ export default function WorkspaceDashboard() {
     }
   }, [user]);
 
+  // Load transcript + OCR results for a video
+  const loadResultsForVideo = useCallback(async (videoId: string) => {
+    setLoadingResults(true);
+    try {
+      const [transcriptData, ocrData] = await Promise.all([
+        getVideoTranscriptsAction(videoId),
+        getVideoOcrDetectionsAction(videoId),
+      ]);
+      setTranscripts(transcriptData);
+      setOcrDetections(ocrData);
+    } catch (e) {
+      console.error("Failed to load results:", e);
+    } finally {
+      setLoadingResults(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       const timer = setTimeout(() => loadSupabaseVideos(), 0);
@@ -81,31 +143,52 @@ export default function WorkspaceDashboard() {
     }
   }, [user, loadSupabaseVideos]);
 
+  // Load results when video selection changes
+  useEffect(() => {
+    if (selectedSupabaseVideo) {
+      loadResultsForVideo(selectedSupabaseVideo.id);
+    } else {
+      setTranscripts([]);
+      setOcrDetections([]);
+    }
+  }, [selectedSupabaseVideo, loadResultsForVideo]);
+
   // Handle switching video selection
   const handleSelectVideo = async (video: VideoWithJob) => {
     setSelectedSupabaseVideo(video);
     setSignedPlaybackUrl(null);
+    setResultsTab("status");
     if (video.storage_path) {
       const signedUrl = await getSignedVideoUrlAction(video.storage_path);
       setSignedPlaybackUrl(signedUrl);
     }
   };
 
-  // Demo simulation pipeline progression
-  // const handleStartDemoAnalysis = () => {
-  //   setDemoAppState("processing");
-  //   setDemoActiveStage(0);
-  //   let stage = 0;
-  //   const interval = setInterval(() => {
-  //     stage++;
-  //     if (stage >= mockStages.length) {
-  //       clearInterval(interval);
-  //       setTimeout(() => setDemoAppState("ready"), 600);
-  //     } else {
-  //       setDemoActiveStage(stage);
-  //     }
-  //   }, 1000);
-  // };
+  // Retry processing handler
+  const handleRetryProcessing = async () => {
+    if (!selectedSupabaseVideo) return;
+    setRetrying(true);
+    try {
+      const result = await retryProcessingAction(selectedSupabaseVideo.id);
+      if (result.success) {
+        // Refresh the video list to get the new job
+        await loadSupabaseVideos(selectedSupabaseVideo.id);
+        setResultsTab("status");
+      }
+    } catch (e) {
+      console.error("Retry failed:", e);
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  // Seek video to a specific timestamp (for clickable timestamps in transcript/OCR)
+  const handleSeekToTime = (timeSeconds: number) => {
+    // If there's a signed URL, we assume the video player is loaded
+    // The VideoPlayer component handles seeking via currentTimeMs prop
+    setDemoCurrentTimeMs(timeSeconds * 1000);
+    window.scrollTo({ top: 150, behavior: "smooth" });
+  };
 
   const handleDemoEventClick = (startTimeMs: number) => {
     setDemoCurrentTimeMs(startTimeMs);
@@ -128,8 +211,6 @@ export default function WorkspaceDashboard() {
       </div>
     );
   }
-
-  const latestJob = selectedSupabaseVideo?.jobs?.[0];
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary-soft transition-theme">
@@ -310,107 +391,39 @@ export default function WorkspaceDashboard() {
                   })}
                 </div>
 
-                {/* Selected Supabase Video Details & Pipeline Status */}
+                {/* Selected Supabase Video Details & Results */}
                 {selectedSupabaseVideo && (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left 2 Cols: Player */}
-                    <div className="lg:col-span-2">
-                      <VideoPlayer
-                        video={{
-                          id: selectedSupabaseVideo.id,
-                          title: selectedSupabaseVideo.title,
-                          url: signedPlaybackUrl || selectedSupabaseVideo.storage_path,
-                          signedUrl: signedPlaybackUrl || undefined,
-                          durationMs: (selectedSupabaseVideo.duration_seconds || 180) * 1000,
-                          width: selectedSupabaseVideo.width,
-                          height: selectedSupabaseVideo.height,
-                          fileSizeBytes: selectedSupabaseVideo.file_size_bytes,
-                        }}
-                        currentTimeMs={0}
-                      />
-                    </div>
+                  <div className="space-y-6">
+                    {/* Video Player + Processing Status — Side by Side */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Left 2 Cols: Player */}
+                      <div className="lg:col-span-2">
+                        <VideoPlayer
+                          video={{
+                            id: selectedSupabaseVideo.id,
+                            title: selectedSupabaseVideo.title,
+                            url: signedPlaybackUrl || selectedSupabaseVideo.storage_path,
+                            signedUrl: signedPlaybackUrl || undefined,
+                            durationMs: (selectedSupabaseVideo.duration_seconds || 180) * 1000,
+                            width: selectedSupabaseVideo.width,
+                            height: selectedSupabaseVideo.height,
+                            fileSizeBytes: selectedSupabaseVideo.file_size_bytes,
+                          }}
+                          currentTimeMs={0}
+                        />
+                      </div>
 
-                    {/* Right Col: Processing Job Record Panel */}
-                    <div className="lg:col-span-1">
-                      <div className="bg-surface rounded-2xl p-6 border border-border shadow-xl h-full flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-                            <h3 className="font-bold text-text-primary text-sm uppercase tracking-wider flex items-center gap-2">
-                              <Database className="w-4 h-4 text-primary" />
-                              Processing Job Record
-                            </h3>
-                            <span className="text-[10px] text-text-muted font-mono">
-                              Table: processing_jobs
-                            </span>
-                          </div>
-
-                          {latestJob ? (
-                            <div className="space-y-4">
-                              <div>
-                                <span className="text-xs text-text-muted">Job Status</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {latestJob.status === "completed" ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                  ) : latestJob.status === "processing" ? (
-                                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                                  ) : latestJob.status === "failed" ? (
-                                    <AlertCircle className="w-4 h-4 text-red-500" />
-                                  ) : (
-                                    <Clock className="w-4 h-4 text-amber-500" />
-                                  )}
-                                  <span className="font-semibold text-text-primary text-sm capitalize">
-                                    {latestJob.status}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div>
-                                <div className="flex justify-between text-xs mb-1">
-                                  <span className="text-text-muted">Current Stage:</span>
-                                  <span className="font-medium text-text-primary truncate max-w-[60%]">
-                                    {latestJob.stage || "Waiting for worker"}
-                                  </span>
-                                </div>
-                                <div className="h-2 w-full bg-surface-secondary rounded-full overflow-hidden border border-border">
-                                  <div
-                                    className="h-full bg-primary transition-all duration-500"
-                                    style={{ width: `${latestJob.progress}%` }}
-                                  />
-                                </div>
-                                <div className="flex justify-between text-[10px] text-text-muted font-mono mt-1">
-                                  <span>Progress</span>
-                                  <span>{latestJob.progress}%</span>
-                                </div>
-                              </div>
-
-                              <div className="bg-surface-secondary/70 p-3 rounded-xl border border-border text-xs space-y-1.5 font-mono">
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">Job ID:</span>
-                                  <span className="text-text-primary truncate max-w-[140px]">
-                                    {latestJob.id}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">Storage Bucket:</span>
-                                  <span className="text-primary truncate">field-service-videos</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">Path:</span>
-                                  <span className="text-text-primary truncate max-w-[140px]">
-                                    {selectedSupabaseVideo.storage_path}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-center py-6 text-text-muted text-xs">
-                              No active processing job record linked.
-                            </div>
-                          )}
-                        </div>
+                      {/* Right Col: Processing Status Panel */}
+                      <div className="lg:col-span-1 space-y-4">
+                        <ProcessingStatusPanel
+                          job={displayJob}
+                          isPolling={isPolling}
+                          onRetry={handleRetryProcessing}
+                          retrying={retrying}
+                        />
 
                         {/* Extracted Keyframes from video_frames table */}
-                        <div className="mt-6 pt-4 border-t border-border">
+                        <div className="bg-surface rounded-2xl p-4 border border-border">
                           <h4 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
                             <ImageIcon className="w-3.5 h-3.5 text-primary" />
                             Extracted Artifacts (video-artifacts)
@@ -432,9 +445,136 @@ export default function WorkspaceDashboard() {
                             </p>
                           )}
                         </div>
-
                       </div>
                     </div>
+
+                    {/* Phase 2: Results Tabs — Transcript & OCR */}
+                    {(displayJob?.status === "completed" || transcripts.length > 0 || ocrDetections.length > 0) && (
+                      <div className="space-y-4">
+                        {/* Results Tab Switcher */}
+                        <div className="flex items-center gap-2 border-b border-border pb-3">
+                          <span className="text-xs font-semibold text-text-muted uppercase tracking-wider mr-2">
+                            Results:
+                          </span>
+                          <button
+                            onClick={() => setResultsTab("status")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              resultsTab === "status"
+                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                            }`}
+                          >
+                            <Database className="w-3 h-3" />
+                            Status
+                          </button>
+                          <button
+                            onClick={() => setResultsTab("transcript")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              resultsTab === "transcript"
+                                ? "bg-chart-speech text-white border-chart-speech shadow-sm"
+                                : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                            }`}
+                          >
+                            <MessageSquareText className="w-3 h-3" />
+                            Transcript ({transcripts.length})
+                          </button>
+                          <button
+                            onClick={() => setResultsTab("ocr")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              resultsTab === "ocr"
+                                ? "bg-chart-ocr text-white border-chart-ocr shadow-sm"
+                                : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                            }`}
+                          >
+                            <ScanText className="w-3 h-3" />
+                            OCR ({ocrDetections.length})
+                          </button>
+
+                          <div className="flex-1" />
+
+                          <button
+                            onClick={() => {
+                              if (selectedSupabaseVideo) {
+                                loadResultsForVideo(selectedSupabaseVideo.id);
+                              }
+                            }}
+                            disabled={loadingResults}
+                            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-secondary rounded-lg transition-all border border-border cursor-pointer"
+                            title="Refresh results"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${loadingResults ? "animate-spin" : ""}`} />
+                          </button>
+                        </div>
+
+                        {/* Render active results tab */}
+                        <div className="animate-in fade-in duration-200">
+                          {resultsTab === "status" && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <ProcessingStatusPanel
+                                job={displayJob}
+                                isPolling={isPolling}
+                                onRetry={handleRetryProcessing}
+                                retrying={retrying}
+                              />
+                              <div className="bg-surface rounded-2xl p-5 border border-border">
+                                <h4 className="text-xs font-bold text-text-primary mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                                  <Database className="w-3.5 h-3.5 text-primary" />
+                                  Database Records
+                                </h4>
+                                <div className="space-y-2 text-xs">
+                                  <div className="flex justify-between py-2 border-b border-border/50">
+                                    <span className="text-text-muted">Video ID</span>
+                                    <span className="font-mono text-text-primary truncate max-w-[200px]">
+                                      {selectedSupabaseVideo.id}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between py-2 border-b border-border/50">
+                                    <span className="text-text-muted">Storage Path</span>
+                                    <span className="font-mono text-primary truncate max-w-[200px]">
+                                      {selectedSupabaseVideo.storage_path}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between py-2 border-b border-border/50">
+                                    <span className="text-text-muted">Transcripts</span>
+                                    <span className="font-semibold text-chart-speech">
+                                      {transcripts.length} segments
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between py-2 border-b border-border/50">
+                                    <span className="text-text-muted">OCR Detections</span>
+                                    <span className="font-semibold text-chart-ocr">
+                                      {ocrDetections.length} texts
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between py-2">
+                                    <span className="text-text-muted">Keyframes</span>
+                                    <span className="font-semibold text-text-primary">
+                                      {selectedSupabaseVideo.frames?.length || 0} frames
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {resultsTab === "transcript" && (
+                            <TranscriptViewer
+                              transcripts={transcripts}
+                              onSeekToTime={handleSeekToTime}
+                              loading={loadingResults}
+                            />
+                          )}
+
+                          {resultsTab === "ocr" && (
+                            <OcrDetectionsViewer
+                              detections={ocrDetections}
+                              onSeekToTime={handleSeekToTime}
+                              loading={loadingResults}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

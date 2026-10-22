@@ -28,9 +28,19 @@ export interface ProcessingJobRecord {
   stage: string | null;
   progress: number;
   error_message: string | null;
+  results_summary: ResultsSummary | null;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+}
+
+/** Summary metadata returned after processing completes */
+export interface ResultsSummary {
+  transcript_count?: number;
+  ocr_count?: number;
+  total_speech_seconds?: number;
+  languages_detected?: string[];
+  processing_time_seconds?: number;
 }
 
 export interface VideoFrameRecord {
@@ -46,8 +56,45 @@ export interface VideoFrameRecord {
   signedUrl?: string;
 }
 
+/** Real Whisper transcript segment stored in the transcripts table */
+export interface TranscriptRecord {
+  id: string;
+  video_id: string;
+  user_id: string;
+  start_time: number;
+  end_time: number;
+  text: string;
+  speaker: string | null;
+  language: string | null;
+  confidence: number | null;
+  created_at: string;
+}
+
+/** PaddleOCR detection stored in the ocr_detections table */
+export interface OcrDetectionRecord {
+  id: string;
+  video_id: string;
+  user_id: string;
+  timestamp_seconds: number;
+  text: string;
+  confidence: number | null;
+  bbox_x_min: number | null;
+  bbox_y_min: number | null;
+  bbox_x_max: number | null;
+  bbox_y_max: number | null;
+  frame_id: string | null;
+  created_at: string;
+}
+
 export interface VideoWithJob extends VideoRecord {
   jobs?: ProcessingJobRecord[];
   frames?: VideoFrameRecord[];
   signedPlaybackUrl?: string;
+}
+
+/** Full video results including transcripts and OCR detections */
+export interface VideoResults {
+  transcripts: TranscriptRecord[];
+  ocr_detections: OcrDetectionRecord[];
+  job: ProcessingJobRecord | null;
 }
