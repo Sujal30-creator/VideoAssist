@@ -49,8 +49,14 @@ export function useProcessingStatus({
 
   const onCompleteRef = useRef(onComplete);
   const onFailedRef = useRef(onFailed);
-  onCompleteRef.current = onComplete;
-  onFailedRef.current = onFailed;
+
+  // onCompleteRef.current = onComplete;
+  // onFailedRef.current = onFailed;
+  // / FIX: Sync latest callbacks safely outside of the render phase
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onFailedRef.current = onFailed;
+  }, [onComplete, onFailed]);
 
   const isTerminal = job?.status === "completed" || job?.status === "failed";
 
@@ -82,7 +88,8 @@ export function useProcessingStatus({
   // Initial fetch
   useEffect(() => {
     if (jobId && enabled) {
-      fetchStatus();
+      const timer = setTimeout(() => fetchStatus(), 0);
+      return () => clearTimeout(timer);
     }
   }, [jobId, enabled, fetchStatus]);
 

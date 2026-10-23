@@ -11,6 +11,9 @@ interface UseResumableUploadOptions {
 }
 
 export function useResumableUpload(options: UseResumableUploadOptions = {}) {
+
+    const hasRegistered = useRef(false);  ///  TO LOCK the already uploaded
+
     const { bucketName = 'user-videos', onSuccess, onError } = options;
     const [progress, setProgress] = useState<number>(0);
     const [state, setState] = useState<UploadState>('idle');
@@ -18,6 +21,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     const uploadTaskRef = useRef<tus.Upload | null>(null);
 
     const uploadFile = useCallback(async (file: File) => {
+        // Reset the lock the exact moment a new upload starts
+        hasRegistered.current = false;
+
         const supabase = createClient();
 
         // Check authentication and get session token for TUS authorization
@@ -45,7 +51,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         setErrorMessage(null);
 
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const storagePath = `${session.user.id}/${Date.now()}_${sanitizedFileName}`;
+        // const storagePath = `${session.user.id}/${Date.now()}_${sanitizedFileName}`;
+        const storagePath = `${session.user.id}/${sanitizedFileName}`;
 
         // Supabase URL is required for the absolute TUS endpoint
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -63,6 +70,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             retryDelays: [0, 3000, 5000, 10000, 20000],
             headers: {
                 authorization: `Bearer ${session.access_token}`,
+                'x-upsert': 'true',
             },
             uploadDataDuringCreation: true,
             removeFingerprintOnSuccess: true, // Prevents caching issues if the same file is uploaded twice
@@ -85,6 +93,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                 }
             },
             onSuccess: async () => {
+
+                // THE LOCK: If this is true, immediately abort. Do not fire the API route again.
+                if (hasRegistered.current) return;
+
+                hasRegistered.current = true;  ///// Lock the gate for any future ghost callbacks
+
+
                 // Step 2: Register uploaded file in Database once TUS completes
                 setState('registering');
 

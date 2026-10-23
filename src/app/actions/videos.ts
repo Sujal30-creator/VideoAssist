@@ -213,6 +213,14 @@ export async function getUserVideosAction(): Promise<VideoWithJob[]> {
               created_at: new Date(Date.now() - 3600000).toISOString(),
               started_at: new Date(Date.now() - 3550000).toISOString(),
               completed_at: new Date(Date.now() - 3400000).toISOString(),
+              // results_summary: null,
+              results_summary: {
+                transcript_count: 12,
+                ocr_count: 8,
+                total_speech_seconds: 142.5,
+                languages_detected: ["en"],
+                processing_time_seconds: 45.2,
+              }
             },
           ],
         },

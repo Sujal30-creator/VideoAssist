@@ -27,10 +27,10 @@ import {
   Database,
   Sparkles,
   RefreshCw,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
+  // Clock,
+  // CheckCircle2,
+  // AlertCircle,
+  // Loader2,
   Film,
   Image as ImageIcon,
   HardDrive,
@@ -146,10 +146,14 @@ export default function WorkspaceDashboard() {
   // Load results when video selection changes
   useEffect(() => {
     if (selectedSupabaseVideo) {
-      loadResultsForVideo(selectedSupabaseVideo.id);
+      const timer = setTimeout(() => loadResultsForVideo(selectedSupabaseVideo.id), 0);
+      return () => clearTimeout(timer);
     } else {
-      setTranscripts([]);
-      setOcrDetections([]);
+      const timer = setTimeout(() => {
+        setTranscripts([]);
+        setOcrDetections([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [selectedSupabaseVideo, loadResultsForVideo]);
 
@@ -458,33 +462,30 @@ export default function WorkspaceDashboard() {
                           </span>
                           <button
                             onClick={() => setResultsTab("status")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                              resultsTab === "status"
-                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${resultsTab === "status"
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                              }`}
                           >
                             <Database className="w-3 h-3" />
                             Status
                           </button>
                           <button
                             onClick={() => setResultsTab("transcript")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                              resultsTab === "transcript"
-                                ? "bg-chart-speech text-white border-chart-speech shadow-sm"
-                                : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${resultsTab === "transcript"
+                              ? "bg-chart-speech text-white border-chart-speech shadow-sm"
+                              : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                              }`}
                           >
                             <MessageSquareText className="w-3 h-3" />
                             Transcript ({transcripts.length})
                           </button>
                           <button
                             onClick={() => setResultsTab("ocr")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                              resultsTab === "ocr"
-                                ? "bg-chart-ocr text-white border-chart-ocr shadow-sm"
-                                : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${resultsTab === "ocr"
+                              ? "bg-chart-ocr text-white border-chart-ocr shadow-sm"
+                              : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                              }`}
                           >
                             <ScanText className="w-3 h-3" />
                             OCR ({ocrDetections.length})
