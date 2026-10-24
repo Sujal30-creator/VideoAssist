@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "videoassist-backend"
+version = "0.1.0"
+description = "FastAPI backend service for VideoAssist multimodal event retrieval and video preprocessing"
+authors = [{ name = "VideoAssist Team" }]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.110.0,<0.120.0",
+    "uvicorn[standard]>=0.28.0,<0.35.0",
+    "pydantic>=2.6.0,<3.0.0",
+    "pydantic-settings>=2.2.0,<3.0.0",
+    "supabase>=2.4.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0,<9.0.0",
+    "httpx>=0.27.0,<0.29.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra -q"
