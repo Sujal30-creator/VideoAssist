@@ -43,7 +43,7 @@ export interface TranscriptEvidence {
 
 export interface OCREvidence {
   timestampMs: number;
-  boundingBox: [number, number, number, number]; // x, y, width, height
+  boundingBox: [number, number, number, number];
   text: string;
   confidence: number;
 }

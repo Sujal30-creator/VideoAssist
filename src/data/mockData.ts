@@ -1,19 +1,19 @@
-import { 
-  Video, 
-  TemporalSegment, 
-  TranscriptEvidence, 
-  OCREvidence, 
-  VisualEvidence, 
+import {
+  Video,
+  TemporalSegment,
+  TranscriptEvidence,
+  OCREvidence,
+  VisualEvidence,
   Event,
   QueryResult,
-  ProcessingStage
+  ProcessingStage,
 } from '../types';
 
 export const mockVideo: Video = {
   id: 'vid_001',
   title: 'Router Troubleshooting & Replacement',
   url: '/mock-videos/router_troubleshoot.mp4',
-  durationMs: 180000 // 3 minutes
+  durationMs: 180000,
 };
 
 export const mockStages: ProcessingStage[] = [
@@ -58,40 +58,40 @@ export const mockVisuals: VisualEvidence[] = [
 ];
 
 export const mockEvents: Event[] = [
-  { 
+  {
     id: 'evt_1', segmentId: 'seg_1', eventType: 'INSPECTION', description: 'Router Inspection', confidence: 0.95,
     temporalRelations: [{ relatedEventId: 'evt_2', relationType: 'BEFORE' }],
-    evidence: { transcripts: [mockTranscripts[0]], ocr: [], visuals: [mockVisuals[0]] }
+    evidence: { transcripts: [mockTranscripts[0]], ocr: [], visuals: [mockVisuals[0]] },
   },
-  { 
+  {
     id: 'evt_2', segmentId: 'seg_2', eventType: 'CABLE_CHECK', description: 'Cable Inspection', confidence: 0.92,
     temporalRelations: [{ relatedEventId: 'evt_1', relationType: 'AFTER' }, { relatedEventId: 'evt_3', relationType: 'BEFORE' }],
-    evidence: { transcripts: [mockTranscripts[1]], ocr: [], visuals: [] }
+    evidence: { transcripts: [mockTranscripts[1]], ocr: [], visuals: [] },
   },
-  { 
+  {
     id: 'evt_3', segmentId: 'seg_3', eventType: 'ERROR_STATE', description: 'Error Detected', confidence: 0.99,
     temporalRelations: [{ relatedEventId: 'evt_2', relationType: 'AFTER' }, { relatedEventId: 'evt_4', relationType: 'BEFORE' }],
-    evidence: { transcripts: [mockTranscripts[2]], ocr: [mockOCR[0]], visuals: [mockVisuals[1]] }
+    evidence: { transcripts: [mockTranscripts[2]], ocr: [mockOCR[0]], visuals: [mockVisuals[1]] },
   },
-  { 
+  {
     id: 'evt_4', segmentId: 'seg_4', eventType: 'RECONNECTION', description: 'Cable Reconnection', confidence: 0.91,
     temporalRelations: [{ relatedEventId: 'evt_3', relationType: 'AFTER' }, { relatedEventId: 'evt_5', relationType: 'BEFORE' }],
-    evidence: { transcripts: [mockTranscripts[3]], ocr: [], visuals: [] }
+    evidence: { transcripts: [mockTranscripts[3]], ocr: [], visuals: [] },
   },
-  { 
+  {
     id: 'evt_5', segmentId: 'seg_5', eventType: 'REBOOT', description: 'Router Restart', confidence: 0.96,
     temporalRelations: [{ relatedEventId: 'evt_4', relationType: 'AFTER' }, { relatedEventId: 'evt_6', relationType: 'BEFORE' }],
-    evidence: { transcripts: [mockTranscripts[4]], ocr: [mockOCR[1]], visuals: [] }
+    evidence: { transcripts: [mockTranscripts[4]], ocr: [mockOCR[1]], visuals: [] },
   },
-  { 
+  {
     id: 'evt_6', segmentId: 'seg_6', eventType: 'BOOT_SEQUENCE', description: 'Boot Sequence', confidence: 0.88,
     temporalRelations: [{ relatedEventId: 'evt_5', relationType: 'AFTER' }, { relatedEventId: 'evt_7', relationType: 'BEFORE' }],
-    evidence: { transcripts: [], ocr: [], visuals: [mockVisuals[2]] }
+    evidence: { transcripts: [], ocr: [], visuals: [mockVisuals[2]] },
   },
-  { 
+  {
     id: 'evt_7', segmentId: 'seg_7', eventType: 'VERIFICATION', description: 'Connectivity Verification', confidence: 0.97,
     temporalRelations: [{ relatedEventId: 'evt_6', relationType: 'AFTER' }],
-    evidence: { transcripts: [mockTranscripts[5]], ocr: [], visuals: [] }
+    evidence: { transcripts: [mockTranscripts[5]], ocr: [], visuals: [] },
   },
 ];
 
@@ -106,8 +106,8 @@ export const mockQueries: QueryResult[] = [
     evidence: {
       transcripts: [mockTranscripts[2]],
       ocr: [mockOCR[0]],
-      visuals: [mockVisuals[1]]
-    }
+      visuals: [mockVisuals[1]],
+    },
   },
   {
     query: 'Did the technician restart the router?',
@@ -119,7 +119,7 @@ export const mockQueries: QueryResult[] = [
     evidence: {
       transcripts: [mockTranscripts[4]],
       ocr: [],
-      visuals: []
-    }
-  }
+      visuals: [],
+    },
+  },
 ];
