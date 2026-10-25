@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Event, TemporalSegment } from '@/types';
-import { Clock, MousePointer2, GitCommitHorizontal, Eye, Mic, Type, Activity } from 'lucide-react';
+import { MousePointer2, GitCommitHorizontal, Eye, Mic, Type } from 'lucide-react';
 
 export interface EventTimelineProps {
   events: Event[];
@@ -11,9 +11,6 @@ export interface EventTimelineProps {
 
 export default function EventTimeline({ events, segments, onEventClick, videoDurationMs = 180000 }: EventTimelineProps) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [viewMode, setViewMode] = useState<'GRAPH' | 'LIST'>('GRAPH');
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -27,31 +24,8 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
     onEventClick(startTimeMs);
   };
 
-  const handleZoom = (direction: 'in' | 'out' | 'fit') => {
-    if (direction === 'fit') {
-      setZoomLevel(1);
-    } else if (direction === 'in') {
-      setZoomLevel((prev) => Math.min(prev + 0.25, 2.5));
-    } else {
-      setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
-    }
-  };
-
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const selectedSegment = segments.find((s) => s.id === selectedEvent?.segmentId);
-
-  // Width & height scale dynamically with zoom
-  const trackWidthPercent = zoomLevel * 100;
-  const staircaseRowHeight = 44 * zoomLevel;
-  const totalStaircaseHeight = Math.max(events.length * staircaseRowHeight + 60, 260);
-
-  // Time ruler notches
-  const markerCount = Math.max(6, Math.floor(8 * zoomLevel));
-  const markers = Array.from({ length: markerCount + 1 }).map((_, i) => {
-    const timeMs = (videoDurationMs / markerCount) * i;
-    const percent = (i / markerCount) * 100;
-    return { timeMs, percent };
-  });
 
   return (
     <div className="mt-6 flex flex-col gap-6 transition-theme">
@@ -84,9 +58,7 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
               return (
                 <div
                   key={event.id}
-                  // onClick={() => handleEventSelect(event.id, segment.startTimeMs)}
-
-                  onClick={() => segment && handleEventSelect(event.id, segment.startTimeMs)}
+                  onClick={() => handleEventSelect(event.id, segment.startTimeMs)}
                   className={`absolute h-8 rounded-xl border flex items-center justify-between px-3 text-[10px] font-medium cursor-pointer transition-all shadow-sm ${isSelected
                     ? 'bg-primary text-primary-foreground border-primary-hover shadow-xs z-20 scale-105'
                     : 'bg-surface-elevated text-text-primary border-border hover:bg-surface-secondary hover:border-primary/50 z-10'
@@ -98,24 +70,21 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
                     minWidth: 'fit-content'
                   }}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs font-bold text-primary px-2.5 py-1 rounded-md bg-background border border-border">
-                      {segment
-                        ? `${formatTime(segment.startTimeMs)} - ${formatTime(segment.endTimeMs)}`
-                        : '00:00'}
+                  <div className="flex items-center gap-3 truncate">
+                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-background/50 border border-border/50 shrink-0">
+                      {formatTime(segment.startTimeMs)} - {formatTime(segment.endTimeMs)}
                     </span>
-                    <div>
-                      <p className="text-xs font-semibold text-text-primary leading-tight">
+                    <div className="truncate">
+                      <p className="text-xs font-semibold leading-tight truncate">
                         {event.description}
                       </p>
-                      <span className="text-[10px] text-text-muted">
-                        Confidence: {Math.round(event.confidence * 100)}% •{' '}
-                        {event.eventType || 'Operational Event'}
+                      <span className="text-[9px] opacity-80">
+                        Confidence: {Math.round(event.confidence * 100)}% • {event.eventType || 'Operational Event'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-text-muted">
+                  <div className="flex items-center gap-2 text-xs opacity-80 shrink-0 ml-3">
                     {event.evidence.visuals.length > 0 && (
                       <Eye className="w-3.5 h-3.5 text-purple-500" />
                     )}
@@ -126,11 +95,6 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
                       <Type className="w-3.5 h-3.5 text-amber-500" />
                     )}
                   </div>
-
-                  <span className="truncate mr-2">{event.description}</span>
-                  <span className={`ml-auto font-mono opacity-80 ${isSelected ? 'text-primary-foreground' : 'text-text-muted'}`}>
-                    {formatTime(segment.startTimeMs)}
-                  </span>
                 </div>
               );
             })}
@@ -183,7 +147,7 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
             {/* Visual Evidence */}
             <div className="bg-background rounded-xl p-5 border border-border transition-theme">
               <h4 className="flex items-center gap-2 text-sm font-semibold text-text-secondary mb-4">
-                <Eye className="w-4 h-4 text-[var(--color-chart-visual)]" /> Visual Evidence
+                <Eye className="w-4 h-4 text-purple-500" /> Visual Evidence
               </h4>
               {selectedEvent.evidence.visuals.length > 0 ? (
                 selectedEvent.evidence.visuals.map((v, i) => (
@@ -199,12 +163,12 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
             {/* Speech Evidence */}
             <div className="bg-background rounded-xl p-5 border border-border transition-theme">
               <h4 className="flex items-center gap-2 text-sm font-semibold text-text-secondary mb-4">
-                <Mic className="w-4 h-4 text-[var(--color-chart-speech)]" /> Speech Evidence
+                <Mic className="w-4 h-4 text-indigo-500" /> Speech Evidence
               </h4>
               {selectedEvent.evidence.transcripts.length > 0 ? (
                 selectedEvent.evidence.transcripts.map((t, i) => (
-                  <p key={i} className="text-sm text-text-primary italic border-l-2 border-[var(--color-chart-speech)]/50 pl-3 mb-3">
-                    "{t.text}"
+                  <p key={i} className="text-sm text-text-primary italic border-l-2 border-indigo-500/50 pl-3 mb-3">
+                    &quot;{t.text}&quot;
                   </p>
                 ))
               ) : (
@@ -215,7 +179,7 @@ export default function EventTimeline({ events, segments, onEventClick, videoDur
             {/* OCR Evidence */}
             <div className="bg-background rounded-xl p-5 border border-border transition-theme">
               <h4 className="flex items-center gap-2 text-sm font-semibold text-text-secondary mb-4">
-                <Type className="w-4 h-4 text-[var(--color-chart-ocr)]" /> OCR Evidence
+                <Type className="w-4 h-4 text-amber-500" /> OCR Evidence
               </h4>
               {selectedEvent.evidence.ocr.length > 0 ? (
                 selectedEvent.evidence.ocr.map((o, i) => (
