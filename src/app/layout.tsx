@@ -13,11 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "VideoAssist",
-  description: "Multimodal Temporal Event Retrieval and Evidence-Grounded QA",
+  description: "AI-assisted video understanding system",
 };
 
 export default function RootLayout({
@@ -29,9 +28,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased min-h-screen">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>
