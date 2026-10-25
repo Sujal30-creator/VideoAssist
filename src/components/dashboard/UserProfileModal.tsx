@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { User, ActivityLog } from '@/types/auth';
 import {
   X,
@@ -27,6 +28,96 @@ interface UserProfileModalProps {
 
 export default function UserProfileModal({ user, isOpen, onClose }: UserProfileModalProps) {
   const [filterType, setFilterType] = useState<'ALL' | 'LOGIN' | 'QUERY_QA' | 'UPLOAD_VIDEO' | 'INSPECT_EVENT'>('ALL');
+
+  const [liveHistory, setLiveHistory] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // If modal is closed, user has no ID, or user is using a mock demo ID, skip live query
+    if (!isOpen || !user?.id || user.id.startsWith('usr_demo_')) {
+      if (user?.id?.startsWith('usr_demo_')) {
+        // Optional: provide mock activity for the demo user if desired
+        setLiveHistory([]);
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchUserActivity = async () => {
+      setIsLoading(true);
+
+      const supabase = createClient();
+
+      // Fetch only this user's videos securely (RLS isolated)
+      const { data: videoData, error: videoError } = await supabase
+        .from('videos')
+        .select('id, original_filename, created_at, status')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      // Fetch only this user's processing jobs securely (RLS isolated)
+      const { data: jobData, error: jobError } = await supabase
+        .from('processing_jobs')
+        .select('id, video_id, status, stage, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (videoError || jobError) {
+        console.error("Failed to fetch isolated user activity:", videoError || jobError);
+        setIsLoading(false);
+        return;
+      }
+
+      const activities: ActivityLog[] = [];
+
+      // // Map videos into UPLOAD_VIDEO logs
+      // (videoData || []).forEach((vid) => {
+      //   activities.push({
+      //     id: vid.id,
+      //     action: 'UPLOAD_VIDEO',
+      //     description: `Uploaded video: ${vid.original_filename || 'Untitled Video'}`,
+      //     timestamp: vid.created_at,
+      //   });
+      // });
+
+      // // Map jobs into INSPECT_EVENT logs
+      // (jobData || []).forEach((job) => {
+      //   activities.push({
+      //     id: job.id,
+      //     action: 'INSPECT_EVENT',
+      //     description: `Processing job ${job.status} (Stage: ${job.stage})`,
+      //     timestamp: job.created_at,
+      //   });
+      // });
+      // Explicitly typed 'vid' parameter
+      (videoData || []).forEach((vid: { id: string; original_filename?: string; created_at: string; status: string }) => {
+        activities.push({
+          id: vid.id,
+          action: 'UPLOAD_VIDEO',
+          description: `Uploaded video: ${vid.original_filename || 'Untitled Video'}`,
+          timestamp: vid.created_at,
+        });
+      });
+
+      // Explicitly typed 'job' parameter
+      (jobData || []).forEach((job: { id: string; status: string; stage: string; created_at: string }) => {
+        activities.push({
+          id: job.id,
+          action: 'INSPECT_EVENT',
+          description: `Processing job ${job.status} (Stage: ${job.stage})`,
+          timestamp: job.created_at,
+        });
+      });
+
+      // Sort newest first
+      activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setLiveHistory(activities);
+      setIsLoading(false);
+    };
+
+    fetchUserActivity();
+  }, [isOpen, user?.id]);
 
   if (!isOpen) return null;
 
@@ -87,7 +178,11 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
     }
   };
 
-  const filteredHistory = (user.activityHistory || []).filter((act) => {
+  // const filteredHistory = (user.activityHistory || []).filter((act) => {
+  //   if (filterType === 'ALL') return true;
+  //   return act.action === filterType;
+  // });
+  const filteredHistory = liveHistory.filter((act) => {
     if (filterType === 'ALL') return true;
     return act.action === filterType;
   });
@@ -191,8 +286,14 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
             </div>
 
             {/* Detailed Timeline List */}
-            <div className="space-y-2 border border-border rounded-xl p-3 bg-surface-secondary/30">
-              {filteredHistory.length === 0 && (
+            <div className="space-y-2 border border-border rounded-xl p-3 bg-surface-secondary/30 min-h-[100px]">
+              {isLoading && (
+                <div className="text-center py-6 text-text-muted text-xs animate-pulse">
+                  Retrieving secure tenant logs...
+                </div>
+              )}
+
+              {!isLoading && filteredHistory.length === 0 && (
                 <div className="text-center py-6 text-text-muted text-xs">
                   No activity found matching this filter.
                 </div>
