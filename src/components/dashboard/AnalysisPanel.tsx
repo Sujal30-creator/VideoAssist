@@ -43,11 +43,6 @@ export default function AnalysisPanel({ appState, stages, activeStageIndex }: An
   return (
     <div className="bg-surface rounded-2xl p-6 border border-border shadow-xl h-full flex flex-col relative overflow-hidden transition-theme">
 
-      {/* Demo Warning */}
-      <div className="absolute top-0 right-0 bg-warning/10 text-warning text-[10px] uppercase font-bold px-3 py-1 border-b border-l border-warning/20 rounded-bl-lg tracking-wider">
-        Demo / Simulated AI Processing
-      </div>
-
       <div className="flex items-center justify-between mb-6 border-b border-border pb-4 mt-2">
         <h3 className="text-lg font-semibold flex items-center gap-2 text-text-primary">
           <Activity className="w-5 h-5 text-primary" /> Video Analysis
