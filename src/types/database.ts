@@ -61,12 +61,15 @@ export interface TranscriptRecord {
   id: string;
   video_id: string;
   user_id: string;
+  job_id?: string | null;
+  segment_index?: number | null;
   start_time: number;
   end_time: number;
   text: string;
   speaker: string | null;
   language: string | null;
   confidence: number | null;
+  model_name?: string | null;
   created_at: string;
 }
 
@@ -75,6 +78,7 @@ export interface OcrDetectionRecord {
   id: string;
   video_id: string;
   user_id: string;
+  job_id?: string | null;
   timestamp_seconds: number;
   text: string;
   confidence: number | null;
@@ -83,6 +87,10 @@ export interface OcrDetectionRecord {
   bbox_x_max: number | null;
   bbox_y_max: number | null;
   frame_id: string | null;
+  frame_width?: number | null;
+  frame_height?: number | null;
+  storage_path?: string | null;
+  model_name?: string | null;
   created_at: string;
 }
 

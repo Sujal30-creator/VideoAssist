@@ -11,13 +11,19 @@ import {
   BarChart3,
   SortAsc,
   SortDesc,
+  Loader2,
+  AlertCircle,
+  Cpu,
+  Maximize2,
 } from "lucide-react";
-import { OcrDetectionRecord } from "@/types/database";
+import { OcrDetectionRecord, JobStatus } from "@/types/database";
 
 interface OcrDetectionsViewerProps {
   detections: OcrDetectionRecord[];
   onSeekToTime?: (timeSeconds: number) => void;
   loading?: boolean;
+  jobStatus?: JobStatus | null;
+  error?: string | null;
 }
 
 function formatTimestamp(seconds: number): string {
@@ -33,6 +39,8 @@ export default function OcrDetectionsViewer({
   detections,
   onSeekToTime,
   loading,
+  jobStatus,
+  error,
 }: OcrDetectionsViewerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expanded, setExpanded] = useState(true);
@@ -127,13 +135,32 @@ export default function OcrDetectionsViewer({
 
       {expanded && (
         <div className="px-5 py-4">
-          {detections.length === 0 ? (
+          {error ? (
+            <div className="text-center py-10 bg-red-500/5 rounded-xl border border-red-500/20 p-4">
+              <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-red-500 mb-1">Failed to Load OCR Detections</p>
+              <p className="text-[11px] text-text-muted">{error}</p>
+            </div>
+          ) : jobStatus === "queued" || jobStatus === "processing" ? (
+            <div className="text-center py-10 bg-chart-ocr/5 rounded-xl border border-chart-ocr/20 p-4">
+              <Loader2 className="w-8 h-8 text-chart-ocr mx-auto mb-2 animate-spin" />
+              <p className="text-xs font-semibold text-text-primary mb-1">
+                Extracting On-Screen Text in Background...
+              </p>
+              <p className="text-[11px] text-text-muted">
+                Keyframes are being sampled and analyzed for visible text using PaddleOCR.
+                Detections will appear as frames are recognized.
+              </p>
+            </div>
+          ) : detections.length === 0 ? (
             <div className="text-center py-10">
               <ScanText className="w-10 h-10 text-text-muted mx-auto mb-3 opacity-40" />
-              <p className="text-xs text-text-muted">
-                No OCR detections available yet.
-                <br />
-                Text detections will appear after PaddleOCR processing completes.
+              <p className="text-xs font-medium text-text-primary mb-1">
+                No On-Screen Text Detected
+              </p>
+              <p className="text-[11px] text-text-muted max-w-sm mx-auto">
+                Frame extraction and OCR finished successfully, but no readable text was
+                detected in the sampled video frames.
               </p>
             </div>
           ) : (
@@ -213,6 +240,20 @@ export default function OcrDetectionsViewer({
                             <Clock className="w-2.5 h-2.5" />
                             {formatTimestamp(detection.timestamp_seconds)}
                           </button>
+
+                          {detection.model_name && (
+                            <span className="flex items-center gap-1 text-[9px] text-text-muted font-mono bg-surface-secondary px-1.5 py-0.5 rounded border border-border/50">
+                              <Cpu className="w-2.5 h-2.5 text-chart-ocr" />
+                              {detection.model_name}
+                            </span>
+                          )}
+
+                          {detection.frame_width && detection.frame_height && (
+                            <span className="flex items-center gap-1 text-[9px] text-text-muted font-mono bg-surface-secondary px-1.5 py-0.5 rounded border border-border/50">
+                              <Maximize2 className="w-2.5 h-2.5" />
+                              {detection.frame_width}×{detection.frame_height}
+                            </span>
+                          )}
 
                           {detection.bbox_x_min !== null && (
                             <span className="flex items-center gap-1 text-[9px] text-text-muted font-mono bg-surface-secondary px-1.5 py-0.5 rounded border border-border/50">

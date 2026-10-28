@@ -10,13 +10,18 @@ import {
   Search,
   Languages,
   BarChart3,
+  Loader2,
+  AlertCircle,
+  Cpu,
 } from "lucide-react";
-import { TranscriptRecord } from "@/types/database";
+import { TranscriptRecord, JobStatus } from "@/types/database";
 
 interface TranscriptViewerProps {
   transcripts: TranscriptRecord[];
   onSeekToTime?: (timeSeconds: number) => void;
   loading?: boolean;
+  jobStatus?: JobStatus | null;
+  error?: string | null;
 }
 
 function formatTimestamp(seconds: number): string {
@@ -30,6 +35,8 @@ export default function TranscriptViewer({
   transcripts,
   onSeekToTime,
   loading,
+  jobStatus,
+  error,
 }: TranscriptViewerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expanded, setExpanded] = useState(true);
@@ -126,13 +133,32 @@ export default function TranscriptViewer({
 
       {expanded && (
         <div className="px-5 py-4">
-          {transcripts.length === 0 ? (
+          {error ? (
+            <div className="text-center py-10 bg-red-500/5 rounded-xl border border-red-500/20 p-4">
+              <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-red-500 mb-1">Failed to Load Transcripts</p>
+              <p className="text-[11px] text-text-muted">{error}</p>
+            </div>
+          ) : jobStatus === "queued" || jobStatus === "processing" ? (
+            <div className="text-center py-10 bg-primary/5 rounded-xl border border-primary/20 p-4">
+              <Loader2 className="w-8 h-8 text-primary mx-auto mb-2 animate-spin" />
+              <p className="text-xs font-semibold text-text-primary mb-1">
+                Transcribing Speech in Background...
+              </p>
+              <p className="text-[11px] text-text-muted">
+                Audio is currently being extracted and transcribed by the Whisper model.
+                Results will populate automatically upon completion.
+              </p>
+            </div>
+          ) : transcripts.length === 0 ? (
             <div className="text-center py-10">
               <MessageSquareText className="w-10 h-10 text-text-muted mx-auto mb-3 opacity-40" />
-              <p className="text-xs text-text-muted">
-                No transcript data available yet.
-                <br />
-                Transcripts will appear after Whisper processing completes.
+              <p className="text-xs font-medium text-text-primary mb-1">
+                No Detectable Speech Found
+              </p>
+              <p className="text-[11px] text-text-muted max-w-sm mx-auto">
+                The transcription pipeline executed successfully, but no spoken audio
+                was detected in this video.
               </p>
             </div>
           ) : (
@@ -200,7 +226,11 @@ export default function TranscriptViewer({
 
                     <div className="flex-1 min-w-0">
                       {/* Timestamp + Speaker */}
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-[9px] font-mono text-text-muted bg-surface-secondary px-1 rounded border border-border/50">
+                          #{segment.segment_index !== null && segment.segment_index !== undefined ? segment.segment_index : index + 1}
+                        </span>
+
                         <button
                           onClick={() => onSeekToTime?.(segment.start_time)}
                           className="flex items-center gap-1 text-[10px] font-mono text-primary hover:text-primary-hover transition-colors cursor-pointer bg-primary/5 px-1.5 py-0.5 rounded"
@@ -209,6 +239,13 @@ export default function TranscriptViewer({
                           <Clock className="w-2.5 h-2.5" />
                           {formatTimestamp(segment.start_time)} — {formatTimestamp(segment.end_time)}
                         </button>
+
+                        {segment.model_name && (
+                          <span className="flex items-center gap-1 text-[9px] font-mono text-text-muted bg-surface-secondary px-1.5 py-0.5 rounded border border-border/50">
+                            <Cpu className="w-2.5 h-2.5 text-primary" />
+                            {segment.model_name}
+                          </span>
+                        )}
 
                         {segment.speaker && (
                           <span className="flex items-center gap-1 text-[10px] text-text-muted">
