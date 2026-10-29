@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.core.config import Settings, get_settings
+from app.services.ocr_service import OcrService
 from app.services.supabase_service import SupabaseService
 from app.services.transcript_service import TranscriptService
 from app.services.video_processor import (
@@ -36,6 +37,7 @@ def process_video_job(
     supabase_service: Optional[SupabaseService] = None,
     settings: Optional[Settings] = None,
     transcript_service: Optional[TranscriptService] = None,
+    ocr_service: Optional[OcrService] = None,
 ) -> None:
     """Execute asynchronous end-to-end video preprocessing in a background worker task.
 
@@ -43,15 +45,18 @@ def process_video_job(
     1. Verify records and mark status='processing' (5%)
     2. Download source video from private bucket 'field-service-videos' (15%)
     3. Extract metadata using FFprobe (25%)
-    4. Extract up to 3 representative keyframes using FFmpeg (40%)
-    5. Upload keyframes to private bucket 'video-artifacts' (55%)
-    6. Transcribe speech audio using faster-whisper (70%)
-    7. Persist metadata, keyframes, and transcripts to database (85%)
-    8. Mark processing_jobs status='completed' (100%)
+    4. Extract up to 3 representative keyframes using FFmpeg (35%)
+    5. Upload keyframes to private bucket 'video-artifacts' (45%)
+    6. Persist keyframes to public.video_frames (55%)
+    7. Transcribe speech audio using faster-whisper (65%)
+    8. Extract visible text using OCR from keyframes (80%)
+    9. Persist transcripts, OCR detections, and video metadata (90%)
+    10. Mark processing_jobs status='completed' (100%)
     """
     cfg = settings or get_settings()
     service = supabase_service or SupabaseService(settings=cfg)
     tx_service = transcript_service or TranscriptService(settings=cfg)
+    ocr_svc = ocr_service or OcrService(settings=cfg)
     current_stage = "Initializing video processing"
 
     logger.info("Starting background processing for job=%s, video=%s", job_id, video_id)
@@ -109,9 +114,9 @@ def process_video_job(
                 max_size_bytes=cfg.MAX_VIDEO_SIZE_BYTES,
             )
 
-            # 5. Extract Representative Keyframes
+            # 4. Extract Representative Keyframes
             current_stage = "Extracting representative keyframes"
-            _update_stage(service, job_id, current_stage, progress=40)
+            _update_stage(service, job_id, current_stage, progress=35)
 
             keyframes_dir = temp_dir / "keyframes"
             keyframes = extract_keyframes(
@@ -121,9 +126,9 @@ def process_video_job(
                 metadata=metadata,
             )
 
-            # 6. Upload Keyframes to private 'video-artifacts' storage
+            # 5. Upload Keyframes to private 'video-artifacts' storage
             current_stage = "Uploading keyframes to private artifact storage"
-            _update_stage(service, job_id, current_stage, progress=55)
+            _update_stage(service, job_id, current_stage, progress=45)
 
             frame_records = []
             for frame in keyframes:
@@ -148,9 +153,17 @@ def process_video_job(
                     }
                 )
 
+            # 6. Persist Keyframes to public.video_frames
+            current_stage = "Persisting extracted keyframes"
+            _update_stage(service, job_id, current_stage, progress=55)
+
+            inserted_frames = []
+            if frame_records:
+                inserted_frames = service.insert_video_frames(frame_records)
+
             # 7. Transcribe Speech Audio
             current_stage = "Transcribing speech audio"
-            _update_stage(service, job_id, current_stage, progress=70)
+            _update_stage(service, job_id, current_stage, progress=65)
 
             transcript_result = tx_service.transcribe_video(
                 video_path=local_video_path,
@@ -176,16 +189,44 @@ def process_video_job(
                         }
                     )
 
-            # 8. Persist Database Records
-            current_stage = "Persisting metadata, keyframes, and transcripts"
-            _update_stage(service, job_id, current_stage, progress=85)
+            # 8. Extract Visible Text using OCR from Keyframes
+            ocr_records = []
+            if cfg.OCR_ENABLED:
+                current_stage = "Extracting visible text using OCR"
+                _update_stage(service, job_id, current_stage, progress=80)
 
-            # Insert into public.video_frames
-            if frame_records:
-                service.insert_video_frames(frame_records)
+                ocr_result = ocr_svc.process_keyframes(
+                    keyframes=keyframes,
+                    frame_records=inserted_frames or frame_records,
+                )
+
+                for det in ocr_result.detections:
+                    ocr_records.append(
+                        {
+                            "video_id": video_id,
+                            "user_id": user_id,
+                            "job_id": job_id,
+                            "timestamp_seconds": det.timestamp_seconds,
+                            "text": det.text,
+                            "confidence": det.confidence,
+                            "bbox_x_min": det.bbox.x_min if det.bbox else None,
+                            "bbox_y_min": det.bbox.y_min if det.bbox else None,
+                            "bbox_x_max": det.bbox.x_max if det.bbox else None,
+                            "bbox_y_max": det.bbox.y_max if det.bbox else None,
+                            "frame_id": det.frame_id,
+                        }
+                    )
+
+            # 9. Persist Database Records (Transcripts, OCR Detections, Video Status)
+            current_stage = "Persisting transcripts, OCR detections, and metadata"
+            _update_stage(service, job_id, current_stage, progress=90)
 
             # Insert into public.transcripts (replacing prior rows for this video to ensure retry idempotency)
             service.insert_transcripts(transcript_records, video_id=video_id, job_id=job_id)
+
+            # Insert into public.ocr_detections (replacing prior rows for this video to ensure retry idempotency)
+            if cfg.OCR_ENABLED:
+                service.insert_ocr_detections(ocr_records, video_id=video_id, job_id=job_id)
 
             # Update public.videos with extracted stream metrics
             service.update_video(
@@ -199,12 +240,21 @@ def process_video_job(
                 error_message=None,
             )
 
-            # 9. Mark processing_jobs status='completed' only after writes succeed
+            # 10. Mark processing_jobs status='completed' only after writes succeed
             completed_iso = datetime.now(timezone.utc).isoformat()
+            results_summary = {
+                "transcript_count": len(transcript_records),
+                "ocr_count": len(ocr_records),
+                "has_audio": bool(transcript_result.has_audio),
+                "has_ocr": bool(ocr_records),
+                "detected_language": transcript_result.detected_language,
+                "languages_detected": [transcript_result.detected_language] if transcript_result.detected_language else [],
+            }
+
             if service.last_degraded_columns:
                 degraded_str = ", ".join(service.last_degraded_columns)
                 logger.warning(
-                    "Job %s completed with degraded transcript persistence (missing columns: %s)",
+                    "Job %s completed with degraded schema persistence (missing columns: %s)",
                     job_id,
                     degraded_str,
                 )
@@ -213,7 +263,8 @@ def process_video_job(
                     status="completed",
                     stage=f"Processing completed with schema degradation (missing columns: {degraded_str})",
                     progress=100,
-                    error_message=f"Warning: Columns {service.last_degraded_columns} missing in public.transcripts. Apply migration 20261029103000_reconcile_transcripts_schema.sql to persist full metadata.",
+                    results_summary=results_summary,
+                    error_message=f"Warning: Columns {service.last_degraded_columns} missing. Apply migration 20261029103000_reconcile_transcripts_schema.sql, 20261029213000_reconcile_ocr_schema.sql, and 20261029224500_reconcile_processing_jobs_schema.sql to persist full metadata.",
                     completed_at=completed_iso,
                 )
             else:
@@ -222,17 +273,19 @@ def process_video_job(
                     status="completed",
                     stage="Processing completed successfully",
                     progress=100,
+                    results_summary=results_summary,
                     error_message=None,
                     completed_at=completed_iso,
                 )
                 logger.info("Job %s -> Stage: 'Processing completed successfully' (100%%)", job_id)
 
         logger.info(
-            "Job %s for video %s completed successfully with %d keyframes and %d transcript segments.",
+            "Job %s for video %s completed successfully with %d keyframes, %d transcript segments, and %d OCR detections.",
             job_id,
             video_id,
             len(frame_records),
             len(transcript_records),
+            len(ocr_records),
         )
 
     except Exception as err:

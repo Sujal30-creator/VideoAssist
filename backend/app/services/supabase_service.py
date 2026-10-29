@@ -112,6 +112,7 @@ class SupabaseService:
         error_message: Any = _SENTINEL,
         started_at: Optional[str] = None,
         completed_at: Optional[str] = None,
+        results_summary: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Update job fields in public.processing_jobs."""
         payload: Dict[str, Any] = {}
@@ -129,18 +130,44 @@ class SupabaseService:
             payload["started_at"] = started_at
         if completed_at is not None:
             payload["completed_at"] = completed_at
+        if results_summary is not None:
+            payload["results_summary"] = results_summary
 
         if not payload:
             return {}
 
         logger.debug("Updating job %s with payload: %s", job_id, payload)
-        response = (
-            self.client.table("processing_jobs")
-            .update(payload)
-            .eq("id", job_id)
-            .execute()
-        )
-        return response.data[0] if response.data else payload
+        try:
+            response = (
+                self.client.table("processing_jobs")
+                .update(payload)
+                .eq("id", job_id)
+                .execute()
+            )
+            return response.data[0] if response.data else payload
+        except Exception as e:
+            if "results_summary" in payload and ("PGRST204" in str(e) or "results_summary" in str(e)):
+                logger.warning(
+                    "Table 'public.processing_jobs' is missing column 'results_summary' (PGRST204). "
+                    "Retrying update without 'results_summary'. Apply 'supabase/migrations/20261029224500_reconcile_processing_jobs_schema.sql' "
+                    "to persist processing summary metadata."
+                )
+                if "results_summary" not in self.last_degraded_columns:
+                    self.last_degraded_columns.append("results_summary")
+                payload.pop("results_summary", None)
+                if not payload:
+                    return {}
+                response = (
+                    self.client.table("processing_jobs")
+                    .update(payload)
+                    .eq("id", job_id)
+                    .execute()
+                )
+                ret = response.data[0] if response.data else dict(payload)
+                if isinstance(ret, dict):
+                    ret["results_summary"] = None
+                return ret
+            raise
 
     def update_video(
         self,
@@ -293,7 +320,7 @@ class SupabaseService:
 
         # Step B: Insert new records (with targeted PGRST204 column retry if live schema is unmigrated)
         logger.debug("Inserting %d transcript records into public.transcripts", len(payload))
-        max_attempts = 5
+        max_attempts = len(payload[0].keys()) + 2 if payload else 10
         attempt = 0
         inserted_data = None
 
@@ -348,6 +375,168 @@ class SupabaseService:
             except Exception as del_err:
                 logger.warning(
                     "New transcripts saved, but cleanup of superseded records for video=%s failed: %s",
+                    target_video_id,
+                    del_err,
+                )
+
+        return inserted_data or []
+
+    def delete_ocr_detections_for_video(self, video_id: str) -> None:
+        """Delete existing OCR detection records for a video to prevent duplicate rows on retry."""
+        logger.debug("Deleting existing OCR detections for video %s", video_id)
+        self.client.table("ocr_detections").delete().eq("video_id", video_id).execute()
+
+    def delete_ocr_detections_for_job(self, job_id: str) -> None:
+        """Delete existing OCR detection records for a specific processing job."""
+        logger.debug("Deleting existing OCR detections for job %s", job_id)
+        try:
+            self.client.table("ocr_detections").delete().eq("job_id", job_id).execute()
+        except Exception as e:
+            logger.debug("Non-fatal: could not delete OCR detections by job_id=%s: %s", job_id, e)
+
+    def insert_ocr_detections(
+        self,
+        ocr_records: List[Dict[str, Any]],
+        video_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Insert OCR detection records into public.ocr_detections using failure-safe replacement.
+
+        Failure-Safety Architecture:
+        1. Validates authenticated user_id ownership on every record before writing.
+        2. Tries the atomic PostgreSQL RPC function 'replace_ocr_detections_atomic' first,
+           which wraps deletion of old records and insertion of new records into a single
+           database transaction. Any failure rolls back the entire transaction, preserving
+           prior successful detections.
+        3. If the RPC function is unavailable (pre-migration environments), falls back
+           to safe two-phase REST replacement:
+           a. Cleans up only partial remnants from the current job_id.
+           b. Inserts the new OCR records. If this fails, execution halts immediately;
+              prior detections from earlier jobs are never deleted.
+           c. ONLY after new records are safely persisted, cleans up old records from
+              previous jobs (job_id != target_job_id).
+        4. Schema Resilience: If PostgREST reports PGRST204 (column not found in schema cache),
+           records the missing column in `self.last_degraded_columns`, strips that specific
+           column, and retries.
+        """
+        target_video_id = video_id or (ocr_records[0].get("video_id") if ocr_records else None)
+        target_job_id = job_id or (ocr_records[0].get("job_id") if ocr_records else None)
+
+        if not ocr_records:
+            if target_video_id:
+                self.delete_ocr_detections_for_video(target_video_id)
+            return []
+
+        # Validate that every record has a non-empty user_id ownership
+        for idx, rec in enumerate(ocr_records):
+            uid = rec.get("user_id")
+            if not uid or not str(uid).strip():
+                raise ValueError(
+                    f"Refusing to persist OCR detections: record index {idx} has invalid or missing user_id ownership."
+                )
+
+        payload = [dict(record) for record in ocr_records]
+
+        # ----------------------------------------------------------------------
+        # Strategy 1: Transaction-safe PostgreSQL RPC (preferred)
+        # ----------------------------------------------------------------------
+        if target_video_id:
+            try:
+                rpc_resp = (
+                    self.client.rpc(
+                        "replace_ocr_detections_atomic",
+                        {
+                            "p_video_id": target_video_id,
+                            "p_records": payload,
+                            "p_job_id": target_job_id,
+                        },
+                    ).execute()
+                )
+                if rpc_resp.data is not None:
+                    logger.debug(
+                        "Successfully replaced %d OCR detections atomically via RPC for video=%s",
+                        len(ocr_records),
+                        target_video_id,
+                    )
+                    return rpc_resp.data
+            except Exception as rpc_err:
+                logger.debug(
+                    "Atomic RPC replace_ocr_detections_atomic unavailable (%s). Using safe two-phase REST replacement.",
+                    rpc_err,
+                )
+
+        # ----------------------------------------------------------------------
+        # Strategy 2: Safe Two-Phase REST Replacement
+        # ----------------------------------------------------------------------
+        # Step A: Clean up any partial remnants from the current job_id
+        if target_video_id and target_job_id:
+            try:
+                self.client.table("ocr_detections").delete().eq("video_id", target_video_id).eq("job_id", target_job_id).execute()
+            except Exception as clean_err:
+                logger.debug("Non-fatal: could not clear current job OCR remnants before insert: %s", clean_err)
+
+        # Step B: Insert new records (with targeted PGRST204 column retry if live schema is unmigrated)
+        logger.debug("Inserting %d OCR detection records into public.ocr_detections", len(payload))
+        max_attempts = len(payload[0].keys()) + 2 if payload else 10
+        attempt = 0
+        inserted_data = None
+
+        while attempt < max_attempts:
+            attempt += 1
+            try:
+                response = (
+                    self.client.table("ocr_detections")
+                    .insert(payload)
+                    .execute()
+                )
+                inserted_data = response.data or payload
+                break
+            except Exception as err:
+                err_msg = str(err)
+                code_match = "PGRST204" in err_msg or getattr(err, "code", None) == "PGRST204"
+                col_match = re.search(r"Could not find the '([^']+)' column", err_msg)
+
+                if (code_match or col_match) and attempt < max_attempts:
+                    missing_col = col_match.group(1) if col_match else None
+                    if not missing_col and payload:
+                        for k in list(payload[0].keys()):
+                            if f"'{k}'" in err_msg or f'"{k}"' in err_msg:
+                                missing_col = k
+                                break
+
+                    if missing_col:
+                        if missing_col not in self.last_degraded_columns:
+                            self.last_degraded_columns.append(missing_col)
+                        logger.warning(
+                            "Live table 'public.ocr_detections' is missing column '%s' (PGRST204). "
+                            "Retrying insert without '%s'. Apply 'supabase/migrations/20261029213000_reconcile_ocr_schema.sql' "
+                            "to synchronize live schema.",
+                            missing_col,
+                            missing_col,
+                        )
+                        for r in payload:
+                            r.pop(missing_col, None)
+                        continue
+
+                logger.error("Failed to insert OCR detection records: %s", err)
+                raise
+
+        # Step C: ONLY after insert succeeds, delete old records from prior jobs
+        if target_video_id:
+            try:
+                if target_job_id and "job_id" not in self.last_degraded_columns:
+                    self.client.table("ocr_detections").delete().eq("video_id", target_video_id).neq("job_id", target_job_id).execute()
+                elif target_job_id and "job_id" in self.last_degraded_columns:
+                    logger.warning(
+                        "Schema degradation: 'public.ocr_detections' lacks 'job_id'. "
+                        "Superseded OCR detections cannot be cleanly partitioned by job_id. "
+                        "Apply 'supabase/migrations/20261029213000_reconcile_ocr_schema.sql'."
+                    )
+                else:
+                    logger.debug("No job_id provided; prior video OCR detections may remain until superseded.")
+            except Exception as del_err:
+                logger.warning(
+                    "New OCR detections saved, but cleanup of superseded records for video=%s failed: %s",
                     target_video_id,
                     del_err,
                 )

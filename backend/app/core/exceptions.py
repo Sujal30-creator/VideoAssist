@@ -55,3 +55,9 @@ class TranscriptionError(MediaProcessingError):
     """Raised when speech transcription inference or model initialization fails."""
 
     pass
+
+
+class OCRError(MediaProcessingError):
+    """Raised when optical character recognition model initialization or inference fails."""
+
+    pass

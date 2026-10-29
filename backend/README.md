@@ -132,13 +132,16 @@ cp .env.example .env
 With the virtual environment activated:
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000
 ```
 
 Alternatively, from the repository root:
 ```bash
-./backend/.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir backend
+./backend/.venv/bin/uvicorn app.main:app --reload --reload-dir backend/app --host 0.0.0.0 --port 8000 --app-dir backend
 ```
+
+> [!NOTE]
+> Always pass `--reload-dir app` (or `--reload-dir backend/app`) to ensure Uvicorn's file watcher (`watchfiles`) monitors only your application code and ignores the `.venv/` directory. Without `--reload-dir`, internal PyTorch and site-package file writes trigger continuous server restarts.
 
 ---
 

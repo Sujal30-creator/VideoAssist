@@ -39,6 +39,11 @@ export default function OcrDetectionsViewer({
   const [sortMode, setSortMode] = useState<SortMode>("time-asc");
 
   // Stats
+  const hasConfidence = useMemo(
+    () => detections.some((d) => d.confidence !== null),
+    [detections]
+  );
+
   const avgConfidence = useMemo(() => {
     const withConf = detections.filter((d) => d.confidence !== null);
     if (withConf.length === 0) return 0;
@@ -113,7 +118,7 @@ export default function OcrDetectionsViewer({
             <div className="hidden sm:flex items-center gap-2 text-[10px] text-text-muted">
               <BarChart3 className="w-3 h-3" />
               <span>
-                Avg confidence: {(avgConfidence * 100).toFixed(0)}%
+                Avg confidence: {hasConfidence ? `${(avgConfidence * 100).toFixed(0)}%` : "N/A"}
               </span>
             </div>
           )}
@@ -226,8 +231,8 @@ export default function OcrDetectionsViewer({
                         </div>
                       </div>
 
-                      {/* Confidence Gauge */}
-                      {detection.confidence !== null && (
+                      {/* Confidence Gauge or N/A */}
+                      {detection.confidence !== null ? (
                         <div className="flex flex-col items-center gap-0.5 shrink-0">
                           <div className="relative w-10 h-10">
                             <svg
@@ -262,9 +267,16 @@ export default function OcrDetectionsViewer({
                               />
                             </svg>
                             <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-text-primary">
-                              {((detection.confidence || 0) * 100).toFixed(0)}
+                              {((detection.confidence || 0) * 100).toFixed(0)}%
                             </span>
                           </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex items-center justify-center shrink-0 w-10 h-10 bg-surface-secondary/50 rounded-lg border border-border/50 text-[9px] text-text-muted font-mono"
+                          title="Confidence unavailable"
+                        >
+                          N/A
                         </div>
                       )}
                     </div>
