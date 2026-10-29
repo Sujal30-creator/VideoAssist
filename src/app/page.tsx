@@ -197,64 +197,81 @@ export default function VideoAssistDashboard() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        {/* System Architecture Section */}
-        <div>
+        {/* System Architecture Section (from base design) */}
+        <div className="text-center">
           <button
             onClick={() => setShowArch(!showArch)}
-            className="flex items-center gap-2 text-text-secondary hover:text-primary transition-colors text-xs font-medium mx-auto bg-surface px-4 py-2 rounded-full border border-border shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-2 text-text-secondary hover:text-primary transition-colors text-xs font-medium bg-surface px-4 py-1.5 rounded-full border border-border cursor-pointer shadow-xs"
           >
-            <Network className="w-3.5 h-3.5" />
-            {showArch ? "Hide System Architecture" : "View System Architecture"}
-            {showArch ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
+            <Network className="w-3.5 h-3.5 text-primary" />
+            {showArch ? "Hide Multimodal System Architecture" : "View Multimodal System Architecture"}
+            {showArch ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
           {showArch && (
-            <div className="mt-4 bg-surface border border-border rounded-2xl p-6 shadow-xl overflow-x-auto transition-theme animate-in slide-in-from-top-4 fade-in duration-300">
+            <div className="mt-4 bg-surface border border-border rounded-2xl p-6 animate-in slide-in-from-top-4 fade-in duration-300 shadow-xl overflow-x-auto transition-theme text-left">
               <h3 className="text-center font-bold text-text-primary uppercase tracking-widest text-xs mb-6">
-                VideoAssist Multimodal Pipeline Architecture
+                VideoAssist End-to-End Multimodal Pipeline Architecture
               </h3>
-              <div className="flex items-center justify-between min-w-[760px] text-xs font-mono text-center">
-                <div className="flex flex-col items-center gap-1 w-28">
-                  <div className="bg-surface-secondary border border-border p-2 rounded-xl w-full">
-                    Video Upload
+              <div className="flex items-center justify-between min-w-[800px] text-xs font-mono text-center">
+                {/* Video Ingest */}
+                <div className="flex flex-col items-center gap-1 w-24">
+                  <div className="bg-surface-secondary border border-border p-2 rounded-lg w-full text-text-primary">
+                    Field Video
                   </div>
                   <div className="text-text-muted my-0.5">↓</div>
-                  <div className="bg-surface-secondary border border-border p-1.5 rounded-lg w-full text-[10px]">
-                    Audio / Frames
+                  <div className="bg-surface-secondary border border-border p-2 rounded-lg w-full text-text-primary">
+                    Frames/Audio
                   </div>
                 </div>
                 <div className="text-text-muted">→</div>
 
+                {/* Modalities */}
                 <div className="flex flex-col gap-2">
-                  <div className="bg-surface-elevated border border-[var(--color-chart-speech)] text-[var(--color-chart-speech)] p-2 rounded-xl w-36">
-                    Whisper Speech
+                  <div className="bg-surface-elevated border border-[var(--color-chart-visual)] text-[var(--color-chart-visual)] p-2 rounded-lg w-28 text-[11px] font-semibold">
+                    Visual Keyframes
                   </div>
-                  <div className="bg-surface-elevated border border-[var(--color-chart-ocr)] text-[var(--color-chart-ocr)] p-2 rounded-xl w-36">
-                    PaddleOCR Text
+                  <div className="bg-surface-elevated border border-[var(--color-chart-speech)] text-[var(--color-chart-speech)] p-2 rounded-lg w-28 text-[11px] font-semibold">
+                    Speech Whisper
+                  </div>
+                  <div className="bg-surface-elevated border border-[var(--color-chart-ocr)] text-[var(--color-chart-ocr)] p-2 rounded-lg w-28 text-[11px] font-semibold">
+                    OCR Equipment
                   </div>
                 </div>
                 <div className="text-text-muted">→</div>
 
-                <div className="flex flex-col items-center gap-1 w-36">
-                  <div className="bg-surface-elevated border border-success/50 text-success p-2 rounded-xl w-full font-bold">
-                    PostgreSQL / RLS
+                {/* Segmentation & Indexing */}
+                <div className="flex flex-col items-center gap-1 w-32">
+                  <div className="bg-surface-elevated border border-emerald-500/40 text-emerald-500 p-2 rounded-lg w-full font-semibold">
+                    Temporal<br />Segmentation
                   </div>
                   <div className="text-text-muted my-0.5">↓</div>
-                  <div className="bg-surface-secondary border border-border p-1.5 rounded-lg w-full text-[10px]">
-                    Transcripts & OCR
+                  <div className="bg-surface-elevated border border-emerald-500/40 text-emerald-500 p-2 rounded-lg w-full font-bold">
+                    Multimodal Index
                   </div>
                 </div>
                 <div className="text-text-muted">→</div>
 
-                <div className="flex flex-col items-center gap-2 w-36">
-                  <div className="bg-primary-soft border border-primary/30 text-primary p-2 rounded-xl w-full">
+                {/* Query Grounding */}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="bg-primary-soft border border-primary/30 text-primary p-1.5 rounded-lg w-36 text-[11px]">
+                    Query Understanding
+                  </div>
+                  <div className="bg-primary-soft border border-primary/30 text-primary p-1.5 rounded-lg w-36 text-[11px]">
+                    Coarse Retrieval
+                  </div>
+                  <div className="bg-primary-soft border border-primary/30 text-primary p-1.5 rounded-lg w-36 text-[11px] font-bold shadow-xs">
                     Temporal Grounding
                   </div>
-                  <div className="bg-primary text-primary-foreground p-2 rounded-xl w-full font-bold shadow-md">
+                </div>
+                <div className="text-text-muted">→</div>
+
+                {/* Verification & QA */}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="bg-surface-elevated border border-primary/50 text-primary p-2 rounded-lg w-36 text-[11px]">
+                    Evidence Verification
+                  </div>
+                  <div className="bg-primary text-primary-foreground p-2 rounded-lg w-36 font-bold shadow-md text-xs">
                     Grounded QA
                   </div>
                 </div>
@@ -262,6 +279,31 @@ export default function VideoAssistDashboard() {
             </div>
           )}
         </div>
+
+        {/* Upload Modal Drawer
+        {showUploadModal && (
+          <div className="p-6 bg-surface border border-primary/40 rounded-2xl animate-in slide-in-from-top-3 duration-300 shadow-xl">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-primary" />
+                Upload Field Recording to Private Supabase Storage
+              </h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="p-1.5 text-text-muted hover:text-text-primary rounded-lg border border-border hover:bg-surface-secondary cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <UploadArea
+              onUploadSuccess={(newVideo) => {
+                setShowUploadModal(false);
+                loadSupabaseVideos(newVideo.id);
+              }}
+              onCancel={() => setShowUploadModal(false)}
+            />
+          </div>
+        )} */}
 
         {/* View 1: When no video is selected yet -> Show clean UploadArea */}
         {!selectedVideo && (
