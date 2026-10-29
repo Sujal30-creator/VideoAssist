@@ -648,7 +648,7 @@ def test_job_runner_degraded_schema_marks_job_stage_and_warning(
     assert "schema degradation" in job["stage"]
     assert "confidence, speaker" in job["stage"]
     assert "Warning: Columns" in job["error_message"]
-    assert "Apply migration reconcile_transcripts_schema.sql" in job["error_message"]
+    assert "Apply migration 20261029103000_reconcile_transcripts_schema.sql" in job["error_message"]
 
 
 def test_migration_sql_security_invoker_and_role_grants():

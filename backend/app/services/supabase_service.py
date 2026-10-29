@@ -325,7 +325,7 @@ class SupabaseService:
                             self.last_degraded_columns.append(missing_col)
                         logger.warning(
                             "Live table 'public.transcripts' is missing column '%s' (PGRST204). "
-                            "Retrying insert without '%s'. Apply 'supabase/migrations/reconcile_transcripts_schema.sql' "
+                            "Retrying insert without '%s'. Apply 'supabase/migrations/20261029103000_reconcile_transcripts_schema.sql' "
                             "to synchronize live schema.",
                             missing_col,
                             missing_col,

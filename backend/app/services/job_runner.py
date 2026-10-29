@@ -213,7 +213,7 @@ def process_video_job(
                     status="completed",
                     stage=f"Processing completed with schema degradation (missing columns: {degraded_str})",
                     progress=100,
-                    error_message=f"Warning: Columns {service.last_degraded_columns} missing in public.transcripts. Apply migration reconcile_transcripts_schema.sql to persist full metadata.",
+                    error_message=f"Warning: Columns {service.last_degraded_columns} missing in public.transcripts. Apply migration 20261029103000_reconcile_transcripts_schema.sql to persist full metadata.",
                     completed_at=completed_iso,
                 )
             else:
