@@ -21,13 +21,16 @@ class MockSupabaseService(SupabaseService):
         self.videos_table: Dict[str, Dict[str, Any]] = {}
         self.video_frames_table: List[Dict[str, Any]] = []
         self.transcripts_table: List[Dict[str, Any]] = []
+        self.ocr_detections_table: List[Dict[str, Any]] = []
         self.storage_uploads: List[Dict[str, Any]] = []
         self.download_fail = False
         self.upload_fail = False
         self.insert_frames_fail = False
         self.insert_transcripts_fail = False
+        self.insert_ocr_fail = False
         self.last_degraded_columns: List[str] = []
         self.simulate_degraded_columns: List[str] = []
+        self.simulate_results_summary_missing = False
         self.update_fail = False
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -39,6 +42,10 @@ class MockSupabaseService(SupabaseService):
     def update_job(self, job_id: str, **kwargs: Any) -> Dict[str, Any]:
         if self.update_fail:
             raise RuntimeError("Simulated database update failure")
+        if self.simulate_results_summary_missing and "results_summary" in kwargs:
+            if "results_summary" not in self.last_degraded_columns:
+                self.last_degraded_columns.append("results_summary")
+            kwargs["results_summary"] = None
         job = self.jobs_table.setdefault(job_id, {"id": job_id})
         job.update(kwargs)
         return job
@@ -95,6 +102,68 @@ class MockSupabaseService(SupabaseService):
 
         self.transcripts_table.extend(transcript_records)
         return transcript_records
+
+    def delete_ocr_detections_for_video(self, video_id: str) -> None:
+        self.ocr_detections_table = [o for o in self.ocr_detections_table if o.get("video_id") != video_id]
+
+    def delete_ocr_detections_for_job(self, job_id: str) -> None:
+        self.ocr_detections_table = [o for o in self.ocr_detections_table if o.get("job_id") != job_id]
+
+    def insert_ocr_detections(
+        self,
+        ocr_records: List[Dict[str, Any]],
+        video_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        self.last_degraded_columns = list(self.simulate_degraded_columns)
+        if not ocr_records:
+            if video_id:
+                self.delete_ocr_detections_for_video(video_id)
+            return []
+
+        for rec in ocr_records:
+            if not rec.get("user_id"):
+                raise ValueError("Refusing to persist OCR detections: missing required user_id ownership.")
+
+        if self.insert_ocr_fail:
+            raise RuntimeError("Simulated database insert failure for OCR detections")
+
+        target_video_id = video_id or (ocr_records[0].get("video_id") if ocr_records else None)
+        target_job_id = job_id or (ocr_records[0].get("job_id") if ocr_records else None)
+
+        if target_video_id:
+            if target_job_id:
+                self.ocr_detections_table = [
+                    o for o in self.ocr_detections_table
+                    if not (o.get("video_id") == target_video_id and o.get("job_id") != target_job_id)
+                ]
+            else:
+                self.delete_ocr_detections_for_video(target_video_id)
+
+        self.ocr_detections_table.extend(ocr_records)
+        return ocr_records
+
+    @property
+    def jobs(self) -> Dict[str, Dict[str, Any]]:
+        return self.jobs_table
+
+    @property
+    def videos(self) -> Dict[str, Dict[str, Any]]:
+        return self.videos_table
+
+    @property
+    def transcripts(self) -> Dict[str, List[Dict[str, Any]]]:
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for t in self.transcripts_table:
+            grouped.setdefault(t.get("video_id"), []).append(t)
+        return grouped
+
+    @property
+    def ocr_detections(self) -> Dict[str, List[Dict[str, Any]]]:
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for o in self.ocr_detections_table:
+            grouped.setdefault(o.get("video_id"), []).append(o)
+        return grouped
 
     def download_file(self, bucket_name: str, storage_path: str, destination_path: Path) -> Path:
         if self.download_fail:

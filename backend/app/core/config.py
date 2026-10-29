@@ -101,6 +101,28 @@ class Settings(BaseSettings):
         description="Optional directory for caching Whisper model weights",
     )
 
+    # Optical character recognition settings (EasyOCR)
+    OCR_ENABLED: bool = Field(
+        default=True,
+        description="Enable optical character recognition in background video processing",
+    )
+    OCR_LANGUAGES: List[str] = Field(
+        default_factory=lambda: ["en"],
+        description="Languages to detect with EasyOCR (e.g. ['en'])",
+    )
+    OCR_GPU: bool = Field(
+        default=False,
+        description="Whether to use GPU acceleration for OCR (defaults to CPU/False for portability)",
+    )
+    OCR_CONFIDENCE_THRESHOLD: float = Field(
+        default=0.3,
+        description="Minimum confidence score (0.0 to 1.0) to retain detected text regions",
+    )
+    OCR_MODEL_STORAGE_DIRECTORY: Optional[str] = Field(
+        default=None,
+        description="Optional local directory for caching EasyOCR model weights",
+    )
+
     @property
     def is_auth_configured(self) -> bool:
         """Check whether the internal API token is configured with non-empty string."""
@@ -141,6 +163,14 @@ class Settings(BaseSettings):
             # Parse comma-separated string from env file, e.g. "http://localhost:3000,http://127.0.0.1:3000"
             if not v.strip().startswith("["):
                 return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    @field_validator("OCR_LANGUAGES", mode="before")
+    @classmethod
+    def parse_ocr_languages(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            if not v.strip().startswith("["):
+                return [lang.strip() for lang in v.split(",") if lang.strip()]
         return v
 
 

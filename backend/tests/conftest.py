@@ -22,7 +22,33 @@ def test_settings() -> Settings:
         PROJECT_NAME="VideoAssist Backend Test",
         API_V1_PREFIX="/api/v1",
         ALLOWED_ORIGINS=["http://testserver"],
+        FASTAPI_INTERNAL_TOKEN="test-token",
+        SUPABASE_URL="https://test.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY="test-service-key",
     )
+
+
+@pytest.fixture
+def sample_video(tmp_path: Path) -> Path:
+    """Generate a tiny 2-second valid MP4 test video using FFmpeg."""
+    import subprocess
+    vid_path = tmp_path / "test_clip.mp4"
+    cmd = [
+        "ffmpeg", "-y", "-f", "lavfi",
+        "-i", "testsrc=size=320x240:rate=25",
+        "-t", "2.0",
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        str(vid_path),
+    ]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    return vid_path
+
+
+@pytest.fixture
+def mock_supabase(test_settings: Settings, sample_video: Path):
+    from tests.test_jobs_api import MockSupabaseService
+    return MockSupabaseService(settings=test_settings, sample_video_path=sample_video)
 
 
 @pytest.fixture
