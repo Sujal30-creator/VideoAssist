@@ -209,7 +209,7 @@ export async function retryProcessingAction(
     // Verify ownership
     const { data: video, error: videoError } = await supabase
       .from("videos")
-      .select("id, status")
+      .select("id, status, storage_path")
       .eq("id", videoId)
       .single();
 
@@ -266,7 +266,7 @@ export async function retryProcessingAction(
         body: JSON.stringify({
           job_id: jobId,
           video_id: videoId,
-          storage_path: video.id,
+          storage_path: video.storage_path,
           user_id: user.id,
           is_retry: true,
         }),

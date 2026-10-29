@@ -46,13 +46,13 @@ export async function uploadVideoFlow(file: File, title: string, userId: string)
     }
 
     // 3. Trigger Server-Side Route Handler to Create Job & Initiate FastAPI Processing
-    const response = await fetch('/api/v1/jobs/process', {
+    const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            videoId: videoRecord.id,
+            video_id: videoRecord.id,
         }),
     });
 

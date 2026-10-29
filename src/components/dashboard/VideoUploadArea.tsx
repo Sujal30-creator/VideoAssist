@@ -12,6 +12,7 @@ export function VideoUploadArea({ onUploadSuccess }: VideoUploadAreaProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const { uploadFile, reset, progress, state, errorMessage } = useResumableUpload({
+    bucketName: 'field-service-videos',
     onSuccess: (videoId, path) => {
       setSelectedFile(null);
       onUploadSuccess?.(videoId, path);

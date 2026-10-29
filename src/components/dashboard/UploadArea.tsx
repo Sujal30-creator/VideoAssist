@@ -37,7 +37,7 @@ export default function UploadArea({
   const MAX_MB = 120; // Matches backend 120MB configuration
   const MAX_BYTES = MAX_MB * 1024 * 1024;
 
-  const { uploadFile, reset, progress, state, errorMessage } =
+  const { uploadFile, retryRegistration, reset, progress, state, errorMessage, hasUploadedObject } =
     useResumableUpload({
       bucketName: "field-service-videos",
       onSuccess: (videoId, storagePath) => {
@@ -224,20 +224,29 @@ export default function UploadArea({
             {isProcessing ? "Cancel Upload" : "Cancel"}
           </button>
 
-          <button
-            onClick={handleStartUpload}
-            disabled={isProcessing}
-            className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-xl font-semibold transition-all shadow-md text-xs cursor-pointer flex items-center gap-2 disabled:opacity-60"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <span>Upload directly via TUS</span>
-            )}
-          </button>
+          {state === "error" && hasUploadedObject ? (
+            <button
+              onClick={() => retryRegistration()}
+              className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-xl font-semibold transition-all shadow-md text-xs cursor-pointer flex items-center gap-2"
+            >
+              <span>Retry Registration</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleStartUpload}
+              disabled={isProcessing}
+              className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-xl font-semibold transition-all shadow-md text-xs cursor-pointer flex items-center gap-2 disabled:opacity-60"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>Upload directly via TUS</span>
+              )}
+            </button>
+          )}
         </div>
       </div>
     );

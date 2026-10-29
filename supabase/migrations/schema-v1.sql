@@ -171,7 +171,7 @@ VALUES
         'field-service-videos', 
         'field-service-videos', 
         false, 
-        104857600, -- 100 MB limit
+        125829120, -- 120 MB limit
         ARRAY['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska']
     ),
     (

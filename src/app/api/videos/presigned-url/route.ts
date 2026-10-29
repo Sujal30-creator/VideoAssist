@@ -5,8 +5,12 @@ export async function GET(req: NextRequest) {
     try {
         const supabase = await createClient();
 
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
-        if (authError || !session) {
+        let user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+            user = (await supabase.auth.getSession()).data.session?.user || null;
+        }
+
+        if (!user) {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
         }
 
@@ -28,13 +32,13 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ message: 'Video not found' }, { status: 404 });
         }
 
-        if (video.user_id !== session.user.id) {
+        if (video.user_id !== user.id) {
             return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
         }
 
         // Generate short-lived presigned URL (valid for 1 hour / 3600 seconds)
         const { data, error: signedUrlError } = await supabase.storage
-            .from('user-videos')
+            .from('field-service-videos')
             .createSignedUrl(video.storage_path, 3600);
 
         if (signedUrlError || !data) {

@@ -11,18 +11,87 @@ interface UseResumableUploadOptions {
 }
 
 export function useResumableUpload(options: UseResumableUploadOptions = {}) {
+    const hasRegistered = useRef(false);
+    const uploadedUploadInfo = useRef<{ storagePath: string; file: File; sessionToken: string } | null>(null);
 
-    const hasRegistered = useRef(false);  ///  TO LOCK the already uploaded
-
-    const { bucketName = 'user-videos', onSuccess, onError } = options;
+    const { bucketName = 'field-service-videos', onSuccess, onError } = options;
     const [progress, setProgress] = useState<number>(0);
     const [state, setState] = useState<UploadState>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [hasUploadedObject, setHasUploadedObject] = useState<boolean>(false);
     const uploadTaskRef = useRef<tus.Upload | null>(null);
+
+    const registerUploadedVideo = useCallback(async (
+        storagePath: string,
+        file: File,
+        sessionToken: string
+    ) => {
+        setState('registering');
+        setErrorMessage(null);
+
+        try {
+            const response = await fetch('/api/videos/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+                },
+                body: JSON.stringify({
+                    storagePath,
+                    originalFilename: file.name,
+                    mimeType: file.type || 'video/mp4',
+                    fileSizeBytes: file.size,
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.message || `Failed to record video in database (Status: ${response.status})`);
+            }
+
+            const { videoId } = data;
+            setState('completed');
+            setProgress(100);
+            uploadedUploadInfo.current = null;
+            setHasUploadedObject(false);
+            onSuccess?.(videoId, storagePath);
+        } catch (err: unknown) {
+            const errorObj = err instanceof Error
+                ? err
+                : new Error(typeof err === 'string' ? err : 'Database registration failed');
+
+            setErrorMessage(errorObj.message);
+            setState('error');
+            onError?.(errorObj);
+        }
+    }, [onSuccess, onError]);
+
+    const retryRegistration = useCallback(async () => {
+        if (!uploadedUploadInfo.current) {
+            const err = new Error('No completed upload pending registration.');
+            setErrorMessage(err.message);
+            setState('error');
+            onError?.(err);
+            return;
+        }
+
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || uploadedUploadInfo.current.sessionToken;
+
+        await registerUploadedVideo(
+            uploadedUploadInfo.current.storagePath,
+            uploadedUploadInfo.current.file,
+            token
+        );
+    }, [registerUploadedVideo, onError]);
 
     const uploadFile = useCallback(async (file: File) => {
         // Reset the lock the exact moment a new upload starts
         hasRegistered.current = false;
+        uploadedUploadInfo.current = null;
+        setHasUploadedObject(false);
 
         const supabase = createClient();
 
@@ -51,7 +120,6 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         setErrorMessage(null);
 
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        // const storagePath = `${session.user.id}/${Date.now()}_${sanitizedFileName}`;
         const storagePath = `${session.user.id}/${sanitizedFileName}`;
 
         // Supabase URL is required for the absolute TUS endpoint
@@ -93,59 +161,35 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                 }
             },
             onSuccess: async () => {
-
                 // THE LOCK: If this is true, immediately abort. Do not fire the API route again.
                 if (hasRegistered.current) return;
+                hasRegistered.current = true;
 
-                hasRegistered.current = true;  ///// Lock the gate for any future ghost callbacks
+                // Save upload state so database registration can be retried without re-uploading
+                uploadedUploadInfo.current = {
+                    storagePath,
+                    file,
+                    sessionToken: session.access_token,
+                };
+                setHasUploadedObject(true);
 
-
-                // Step 2: Register uploaded file in Database once TUS completes
-                setState('registering');
-
-                try {
-                    const response = await fetch('/api/videos/register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            storagePath: storagePath,
-                            originalFilename: file.name,
-                            mimeType: file.type,
-                            fileSizeBytes: file.size,
-                        }),
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Failed to register video metadata.');
-                    }
-
-                    const { videoId } = await response.json();
-
-                    setState('completed');
-                    setProgress(100);
-                    onSuccess?.(videoId, storagePath);
-                } catch (err: unknown) {
-                    const errorObj = err instanceof Error
-                        ? err
-                        : new Error(typeof err === 'string' ? err : 'Registration failed');
-
-                    setErrorMessage(errorObj.message);
-                    setState('error');
-                    onError?.(errorObj);
-                }
+                // Register uploaded file in Database once TUS completes
+                await registerUploadedVideo(storagePath, file, session.access_token);
             }
         });
 
         uploadTaskRef.current = upload;
         upload.start();
 
-    }, [bucketName, onSuccess, onError]);
+    }, [bucketName, onError, registerUploadedVideo]);
 
     const reset = useCallback(() => {
         if (uploadTaskRef.current && state === 'uploading') {
             uploadTaskRef.current.abort();
         }
+        hasRegistered.current = false;
+        uploadedUploadInfo.current = null;
+        setHasUploadedObject(false);
         setProgress(0);
         setState('idle');
         setErrorMessage(null);
@@ -153,9 +197,11 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
 
     return {
         uploadFile,
+        retryRegistration,
         reset,
         progress,
         state,
         errorMessage,
+        hasUploadedObject,
     };
 }
