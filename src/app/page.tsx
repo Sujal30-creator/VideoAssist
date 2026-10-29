@@ -178,18 +178,18 @@ export default function VideoAssistDashboard() {
 
   const playerVideo = selectedVideo
     ? {
-        id: selectedVideo.id,
-        title: selectedVideo.title,
-        // OLD:
-        // durationMs: (selectedVideo.duration_seconds || 180) * 1000,
-        // NEW: Real video duration in ms (defaults to 0 so VideoPlayer detects real HTML5 metadata)
-        durationMs: selectedVideo.duration_seconds ? selectedVideo.duration_seconds * 1000 : 0,
-        url: signedPlaybackUrl || "",
-        signedUrl: signedPlaybackUrl || undefined,
-        width: selectedVideo.width,
-        height: selectedVideo.height,
-        fileSizeBytes: selectedVideo.file_size_bytes,
-      }
+      id: selectedVideo.id,
+      title: selectedVideo.title,
+      // OLD:
+      // durationMs: (selectedVideo.duration_seconds || 180) * 1000,
+      // NEW: Real video duration in ms (defaults to 0 so VideoPlayer detects real HTML5 metadata)
+      durationMs: selectedVideo.duration_seconds ? selectedVideo.duration_seconds * 1000 : 0,
+      url: signedPlaybackUrl || "",
+      signedUrl: signedPlaybackUrl || undefined,
+      width: selectedVideo.width,
+      height: selectedVideo.height,
+      fileSizeBytes: selectedVideo.file_size_bytes,
+    }
     : null;
 
   return (
@@ -280,14 +280,14 @@ export default function VideoAssistDashboard() {
             {/* Top Navigation Bar: Back to Upload / Switch Video */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-surface p-3.5 rounded-2xl border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <button
+                {/* <button
                   onClick={() => setSelectedVideo(null)}
                   className="p-2 rounded-xl bg-surface-secondary hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary transition-colors cursor-pointer text-xs flex items-center gap-1.5"
                   title="Upload another video"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span className="hidden sm:inline">Upload New</span>
-                </button>
+                </button> */}
 
                 <div className="flex items-center gap-2">
                   <Film className="w-4 h-4 text-primary shrink-0" />
@@ -361,11 +361,10 @@ export default function VideoAssistDashboard() {
               <div className="flex items-center gap-2 border-b border-border pb-2">
                 <button
                   onClick={() => setActiveTab("transcripts")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                    activeTab === "transcripts"
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-surface text-text-muted hover:text-text-primary border-border"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${activeTab === "transcripts"
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-surface text-text-muted hover:text-text-primary border-border"
+                    }`}
                 >
                   <MessageSquareText className="w-3.5 h-3.5" />
                   Speech Transcripts ({transcripts.length})
@@ -373,11 +372,10 @@ export default function VideoAssistDashboard() {
 
                 <button
                   onClick={() => setActiveTab("ocr")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                    activeTab === "ocr"
-                      ? "bg-chart-ocr text-white border-chart-ocr shadow-sm"
-                      : "bg-surface text-text-muted hover:text-text-primary border-border"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${activeTab === "ocr"
+                    ? "bg-chart-ocr text-white border-chart-ocr shadow-sm"
+                    : "bg-surface text-text-muted hover:text-text-primary border-border"
+                    }`}
                 >
                   <ScanText className="w-3.5 h-3.5" />
                   OCR Detections ({ocrDetections.length})
@@ -385,11 +383,10 @@ export default function VideoAssistDashboard() {
 
                 <button
                   onClick={() => setActiveTab("timeline")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                    activeTab === "timeline"
-                      ? "bg-surface-elevated text-text-primary border-primary/40 shadow-sm"
-                      : "bg-surface text-text-muted hover:text-text-primary border-border"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${activeTab === "timeline"
+                    ? "bg-surface-elevated text-text-primary border-primary/40 shadow-sm"
+                    : "bg-surface text-text-muted hover:text-text-primary border-border"
+                    }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
                   Timeline & QA

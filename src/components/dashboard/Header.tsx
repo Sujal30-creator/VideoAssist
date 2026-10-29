@@ -54,7 +54,7 @@ export default function Header() {
                   className="p-2 text-text-muted hover:text-red-500 hover:bg-surface rounded-lg transition-colors border border-transparent hover:border-border cursor-pointer flex items-center gap-1.5 text-xs font-medium"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
+                  {/* <span className="hidden sm:inline">Sign Out</span> */}
                 </button>
               </div>
             ) : (
