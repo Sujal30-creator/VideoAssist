@@ -506,7 +506,287 @@ export default function VideoAssistDashboard() {
             </div>
           </div>
         )}
-      </main>
+
+        {/* Selected Supabase Video Details & Results
+        {selectedSupabaseVideo && (
+          <div className="space-y-6">
+            {/* Video Player + Processing Status — Side by Side */}
+        {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left 2 Cols: Player */}
+        {/* <div className="lg:col-span-2">
+                <VideoPlayer
+                  video={{
+                    id: selectedSupabaseVideo.id,
+                    title: selectedSupabaseVideo.title,
+                    url: signedPlaybackUrl || selectedSupabaseVideo.storage_path,
+                    signedUrl: signedPlaybackUrl || undefined,
+                    durationMs: (selectedSupabaseVideo.duration_seconds || 180) * 1000,
+                    width: selectedSupabaseVideo.width,
+                    height: selectedSupabaseVideo.height,
+                    fileSizeBytes: selectedSupabaseVideo.file_size_bytes,
+                  }}
+                  currentTimeMs={0}
+                />
+              </div> */}
+
+        {/* Right Col: Processing Status Panel
+              <div className="lg:col-span-1 space-y-4">
+                <ProcessingStatusPanel
+                  job={displayJob}
+                  isPolling={isPolling}
+                  onRetry={handleRetryProcessing}
+                  retrying={retrying}
+                /> */}
+
+        {/* Extracted Keyframes from video_frames table */}
+        {/* <div className="bg-surface rounded-2xl p-4 border border-border">
+                  <h4 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                    Extracted Artifacts (video-artifacts)
+                  </h4>
+                  {selectedSupabaseVideo.frames && selectedSupabaseVideo.frames.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedSupabaseVideo.frames.map((frame) => (
+                        <div
+                          key={frame.id}
+                          className="aspect-video bg-black/40 rounded border border-border overflow-hidden text-[9px] text-center flex items-center justify-center font-mono text-text-muted"
+                        >
+                          {frame.timestamp_seconds}s
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-text-muted italic">
+                      Keyframes will appear once Python worker completes extraction into bucket &quot;video-artifacts&quot;.
+                    </p>
+                  )}
+                </div> */}
+
+        {/* Video Metadata Metrics */}
+        {/* <div className="bg-surface rounded-2xl p-4 border border-border">
+                  <h4 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
+                    <Film className="w-3.5 h-3.5 text-primary" />
+                    Stream Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2 bg-surface-secondary rounded-lg">
+                      <span className="text-text-muted block text-[10px]">Dimensions</span>
+                      <span className="font-semibold text-text-primary">
+                        {selectedSupabaseVideo.width && selectedSupabaseVideo.height
+                          ? `${selectedSupabaseVideo.width}x${selectedSupabaseVideo.height}`
+                          : "Pending extraction"}
+                      </span>
+                    </div>
+                    <div className="p-2 bg-surface-secondary rounded-lg">
+                      <span className="text-text-muted block text-[10px]">Frame Rate</span>
+                      <span className="font-semibold text-text-primary">
+                        {selectedSupabaseVideo.fps ? `${selectedSupabaseVideo.fps} fps` : "Pending extraction"}
+                      </span>
+                    </div>
+                    <div className="p-2 bg-surface-secondary rounded-lg">
+                      <span className="text-text-muted block text-[10px]">Duration</span>
+                      <span className="font-semibold text-text-primary">
+                        {selectedSupabaseVideo.duration_seconds
+                          ? `${selectedSupabaseVideo.duration_seconds.toFixed(1)}s`
+                          : "Pending extraction"}
+                      </span>
+                    </div>
+                    <div className="p-2 bg-surface-secondary rounded-lg">
+                      <span className="text-text-muted block text-[10px]">Total Frames</span>
+                      <span className="font-semibold text-text-primary">
+                        {selectedSupabaseVideo.frame_count || "Pending extraction"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div> */}
+        {/* </div>  */}
+
+        {/* Results Exploration (Transcript, OCR, Database Summary) */}
+        {/* <div className="border-t border-border pt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={() => setResultsTab("status")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${resultsTab === "status"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                    }`}
+                >
+                  <Database className="w-3 h-3" />
+                  Processing Overview
+                </button>
+                <button
+                  onClick={() => setResultsTab("transcript")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${resultsTab === "transcript"
+                      ? "bg-chart-speech text-white border-chart-speech shadow-sm"
+                      : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                    }`}
+                >
+                  <MessageSquareText className="w-3 h-3" />
+                  Transcript ({transcripts.length})
+                </button>
+                <button
+                  onClick={() => setResultsTab("ocr")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${resultsTab === "ocr"
+                      ? "bg-chart-ocr text-white border-chart-ocr shadow-sm"
+                      : "bg-surface text-text-muted border-border hover:text-text-primary hover:bg-surface-secondary"
+                    }`}
+                >
+                  <ScanText className="w-3 h-3" />
+                  OCR ({ocrDetections.length})
+                </button>
+
+                <div className="flex-1" />
+
+                <button
+                  onClick={() => {
+                    if (selectedSupabaseVideo) {
+                      loadResultsForVideo(selectedSupabaseVideo.id);
+                    }
+                  }}
+                  disabled={loadingResults}
+                  className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-secondary rounded-lg transition-all border border-border cursor-pointer"
+                  title="Refresh results"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingResults ? "animate-spin" : ""}`} />
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("timeline")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${activeTab === "timeline"
+                    ? "bg-surface-elevated text-text-primary border-primary/40 shadow-sm"
+                    : "bg-surface text-text-muted hover:text-text-primary border-border"
+                    }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  Timeline & QA
+                </button>
+              </div>
+
+              {/* Tab Content */}
+        {/* {activeTab === "transcripts" && (
+                <div className="animate-in fade-in duration-300">
+                  <TranscriptViewer
+                    transcripts={transcripts}
+                    onSeekToTime={handleSeekSeconds}
+                    loading={loadingResults}
+                    jobStatus={currentJob?.status}
+                    error={resultsError}
+                  />
+                </div>
+              )} */}
+        {/* </div> */}
+
+        {/* Render active results tab */}
+        {/* <div className="animate-in fade-in duration-200">
+              {resultsTab === "status" && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <ProcessingStatusPanel
+                    job={displayJob}
+                    isPolling={isPolling}
+                    onRetry={handleRetryProcessing}
+                    retrying={retrying}
+                  />
+                  <div className="bg-surface rounded-2xl p-5 border border-border">
+                    <h4 className="text-xs font-bold text-text-primary mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5 text-primary" />
+                      Database Records
+                    </h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-text-muted">Video ID</span>
+                        <span className="font-mono text-text-primary truncate max-w-[200px]">
+                          {selectedSupabaseVideo.id}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-text-muted">Storage Path</span>
+                        <span className="font-mono text-primary truncate max-w-[200px]">
+                          {selectedSupabaseVideo.storage_path}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-text-muted">Transcripts</span>
+                        <span className="font-semibold text-chart-speech">
+                          {transcripts.length} segments
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-text-muted">OCR Detections</span>
+                        <span className="font-semibold text-chart-ocr">
+                          {ocrDetections.length} texts
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-text-muted">Keyframes</span>
+                        <span className="font-semibold text-text-primary">
+                          {selectedSupabaseVideo.frames?.length || 0} frames
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {resultsTab === "transcript" && (
+                <TranscriptViewer
+                  transcripts={transcripts}
+                  onSeekToTime={handleSeekToTime}
+                  loading={loadingResults}
+                />
+              )}
+
+              {resultsTab === "ocr" && (
+                <OcrDetectionsViewer
+                  detections={ocrDetections}
+                  onSeekToTime={handleSeekToTime}
+                  loading={loadingResults}
+                />
+              )}
+            </div> */}
+        {/* </div> */}
+        {/* </div> */}
+
+
+        {/* ========================================================================= */}
+        {/* TAB 2: INTERACTIVE DEMO (SITE 42 ROUTER WITH FULL EVIDENCE & QA)          */}
+        {/* ========================================================================= */}
+        {/* {activeTab === "demo" && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Left 2 Cols: Player */}
+        {/* <div className="lg:col-span-2">
+                          <VideoPlayer
+                            video={mockVideo}
+                            currentTimeMs={demoCurrentTimeMs}
+                            onTimeUpdate={(ms) => setDemoCurrentTimeMs(ms)}
+                          />
+                        </div> */}
+
+        {/* Right Col: Analysis Panel
+                        <div className="lg:col-span-1">
+                          <AnalysisPanel
+                            appState={demoAppState}
+                            stages={mockStages}
+                            activeStageIndex={demoActiveStage}
+                            events={mockEvents}
+                          />
+                        </div>
+                      </div> */}
+
+        {/* Timeline & QA Search
+                      <div className="animate-in fade-in slide-in-from-bottom-3 duration-500">
+                        <EventTimeline
+                          events={mockEvents}
+                          segments={mockSegments}
+                          onEventClick={handleDemoEventClick}
+                          videoDurationMs={mockVideo.durationMs}
+                        />
+                        <SearchPanel onSeek={handleDemoEventClick} />
+                      </div>
+                    </div>
+                  )} */}
+      </main >
     </div>
   );
 }
