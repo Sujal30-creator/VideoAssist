@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -39,6 +40,7 @@ class SupabaseService:
     ) -> None:
         self.settings = settings or get_settings()
         self._client = client
+        self.last_degraded_columns: List[str] = []
 
     @property
     def client(self) -> Client:
@@ -194,6 +196,163 @@ class SupabaseService:
             .execute()
         )
         return response.data or []
+
+    def delete_transcripts_for_video(self, video_id: str) -> None:
+        """Delete existing transcript records for a video to prevent duplicate rows on retry."""
+        logger.debug("Deleting existing transcripts for video %s", video_id)
+        self.client.table("transcripts").delete().eq("video_id", video_id).execute()
+
+    def delete_transcripts_for_job(self, job_id: str) -> None:
+        """Delete existing transcript records for a specific processing job."""
+        logger.debug("Deleting existing transcripts for job %s", job_id)
+        self.client.table("transcripts").delete().eq("job_id", job_id).execute()
+
+    def insert_transcripts(
+        self,
+        transcript_records: List[Dict[str, Any]],
+        video_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Insert transcript records into public.transcripts using failure-safe replacement.
+
+        Failure-Safety Architecture:
+        1. Validates authenticated user_id ownership on every record before writing.
+        2. Tries the atomic PostgreSQL RPC function 'replace_transcripts_atomic' first,
+           which wraps deletion of old records and insertion of new records into a single
+           database transaction. Any network or constraint failure rolls back the entire
+           transaction, preserving the previous successful transcript.
+        3. If the RPC function is unavailable (e.g. pre-migration environments), falls back
+           to safe two-phase REST replacement:
+           a. Cleans up only partial remnants from the *current* job_id (preventing duplicate
+              segments if re-running the same job).
+           b. Inserts the new transcript records. If this step fails, execution halts
+              immediately—prior successful transcripts from earlier jobs are NEVER deleted.
+           c. ONLY after the new records are safely persisted, cleans up old records from
+              previous jobs (job_id != target_job_id).
+        4. Schema Resilience: If PostgREST reports PGRST204 (column not found in schema cache),
+           records the missing column in `self.last_degraded_columns`, strips that specific
+           column, and retries. Does NOT hide unrelated errors or strip arbitrary columns.
+        """
+        self.last_degraded_columns = []
+
+        target_video_id = video_id or (transcript_records[0].get("video_id") if transcript_records else None)
+        target_job_id = job_id or (transcript_records[0].get("job_id") if transcript_records else None)
+
+        if not transcript_records:
+            if target_video_id:
+                self.delete_transcripts_for_video(target_video_id)
+            return []
+
+        # Validate that every record has a non-empty user_id ownership
+        for idx, rec in enumerate(transcript_records):
+            uid = rec.get("user_id")
+            if not uid or not str(uid).strip():
+                raise ValueError(
+                    f"Refusing to persist transcripts: record index {idx} has invalid or missing user_id ownership."
+                )
+
+        payload = [dict(record) for record in transcript_records]
+
+        # ----------------------------------------------------------------------
+        # Strategy 1: Transaction-safe PostgreSQL RPC (preferred)
+        # ----------------------------------------------------------------------
+        if target_video_id:
+            try:
+                rpc_resp = (
+                    self.client.rpc(
+                        "replace_transcripts_atomic",
+                        {
+                            "p_video_id": target_video_id,
+                            "p_records": payload,
+                            "p_job_id": target_job_id,
+                        },
+                    ).execute()
+                )
+                if rpc_resp.data is not None:
+                    logger.debug(
+                        "Successfully replaced %d transcripts atomically via RPC for video=%s",
+                        len(transcript_records),
+                        target_video_id,
+                    )
+                    return rpc_resp.data
+            except Exception as rpc_err:
+                logger.debug(
+                    "Atomic RPC replace_transcripts_atomic unavailable (%s). Using safe two-phase REST replacement.",
+                    rpc_err,
+                )
+
+        # ----------------------------------------------------------------------
+        # Strategy 2: Safe Two-Phase REST Replacement
+        # ----------------------------------------------------------------------
+        # Step A: Clean up any partial remnants from the *current* job_id
+        if target_video_id and target_job_id:
+            try:
+                self.client.table("transcripts").delete().eq("video_id", target_video_id).eq("job_id", target_job_id).execute()
+            except Exception as clean_err:
+                logger.debug("Non-fatal: could not clear current job remnants before insert: %s", clean_err)
+
+        # Step B: Insert new records (with targeted PGRST204 column retry if live schema is unmigrated)
+        logger.debug("Inserting %d transcript records into public.transcripts", len(payload))
+        max_attempts = 5
+        attempt = 0
+        inserted_data = None
+
+        while attempt < max_attempts:
+            attempt += 1
+            try:
+                response = (
+                    self.client.table("transcripts")
+                    .insert(payload)
+                    .execute()
+                )
+                inserted_data = response.data or payload
+                break
+            except Exception as err:
+                err_msg = str(err)
+                code_match = "PGRST204" in err_msg or getattr(err, "code", None) == "PGRST204"
+                col_match = re.search(r"Could not find the '([^']+)' column", err_msg)
+
+                if (code_match or col_match) and attempt < max_attempts:
+                    missing_col = col_match.group(1) if col_match else None
+                    if not missing_col and payload:
+                        for k in list(payload[0].keys()):
+                            if f"'{k}'" in err_msg or f'"{k}"' in err_msg:
+                                missing_col = k
+                                break
+
+                    if missing_col:
+                        if missing_col not in self.last_degraded_columns:
+                            self.last_degraded_columns.append(missing_col)
+                        logger.warning(
+                            "Live table 'public.transcripts' is missing column '%s' (PGRST204). "
+                            "Retrying insert without '%s'. Apply 'supabase/migrations/reconcile_transcripts_schema.sql' "
+                            "to synchronize live schema.",
+                            missing_col,
+                            missing_col,
+                        )
+                        for r in payload:
+                            r.pop(missing_col, None)
+                        continue
+
+                # Unrelated error or unidentifiable column: fail visibly without destroying previous data
+                logger.error("Failed to insert transcript records: %s", err)
+                raise
+
+        # Step C: ONLY after insert succeeds, delete old records from prior jobs
+        if target_video_id:
+            try:
+                if target_job_id:
+                    self.client.table("transcripts").delete().eq("video_id", target_video_id).neq("job_id", target_job_id).execute()
+                else:
+                    logger.debug("No job_id provided; prior video transcripts may remain until superseded.")
+            except Exception as del_err:
+                logger.warning(
+                    "New transcripts saved, but cleanup of superseded records for video=%s failed: %s",
+                    target_video_id,
+                    del_err,
+                )
+
+        return inserted_data or []
 
     def download_file(
         self,

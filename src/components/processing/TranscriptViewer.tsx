@@ -69,9 +69,11 @@ export default function TranscriptViewer({
     );
   }, [transcripts]);
 
-  const avgConfidence = useMemo(() => {
-    const withConf = transcripts.filter((t) => t.confidence !== null);
-    if (withConf.length === 0) return 0;
+  const avgConfidence = useMemo<number | null>(() => {
+    const withConf = transcripts.filter(
+      (t) => t.confidence !== null && t.confidence !== undefined
+    );
+    if (withConf.length === 0) return null;
     return withConf.reduce((sum, t) => sum + (t.confidence || 0), 0) / withConf.length;
   }, [transcripts]);
 
@@ -112,7 +114,10 @@ export default function TranscriptViewer({
             <div className="hidden sm:flex items-center gap-2 text-[10px] text-text-muted">
               <BarChart3 className="w-3 h-3" />
               <span>
-                Avg confidence: {(avgConfidence * 100).toFixed(0)}%
+                Avg confidence:{" "}
+                {avgConfidence !== null
+                  ? `${(avgConfidence * 100).toFixed(0)}%`
+                  : "N/A"}
               </span>
             </div>
           )}

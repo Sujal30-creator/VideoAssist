@@ -68,6 +68,9 @@ export interface TranscriptRecord {
   language: string | null;
   confidence: number | null;
   created_at: string;
+  job_id?: string | null;
+  segment_index?: number | null;
+  model_name?: string | null;
 }
 
 /** PaddleOCR detection stored in the ocr_detections table */

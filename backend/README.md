@@ -119,6 +119,11 @@ cp .env.example .env
 | `ALLOWED_ORIGINS` | Optional | `http://localhost:3000,http://127.0.0.1:3000` | CORS permitted origins for Next.js frontend |
 | `TEMP_STORAGE_DIR` | Optional | `/tmp/videoassist` | Local scratch directory for temporary staging |
 | `MAX_VIDEO_SIZE_BYTES` | Optional | `125829120` (120 MB) | Maximum permitted video file size |
+| `WHISPER_MODEL_SIZE` | Optional | `base` | Whisper model size (`tiny`, `base`, `small`, `medium`, `large-v3`) |
+| `WHISPER_DEVICE` | Optional | `auto` | Inference device (`auto`, `cpu`, `cuda`) |
+| `WHISPER_COMPUTE_TYPE` | Optional | `default` | Quantization compute type (`default`, `int8`, `float16`, `float32`) |
+| `WHISPER_LANGUAGE` | Optional | `None` | Optional forced ISO 639-1 language code (e.g. `en`); auto-detects if omitted |
+| `WHISPER_DOWNLOAD_ROOT` | Optional | `None` | Optional custom model weights cache directory (defaults to Hugging Face cache) |
 
 ---
 
@@ -251,7 +256,20 @@ for frame in result.keyframes:
 rm -rf sample_service.mp4 sample_extracted_frames
 ```
 
-### Option C: Triggering Job Pipeline via API
+### Option C: Manual Speech Transcription Smoke Test (Phase 2A)
+Run speech transcription with real `faster-whisper` inference on a video containing audible speech (or let the script synthesize a short sample clip with speech automatically):
+
+```bash
+# Run against auto-synthesized audible speech clip:
+backend/.venv/bin/python scripts/smoke_test_transcription.py
+
+# Or run against an existing local video:
+backend/.venv/bin/python scripts/smoke_test_transcription.py path/to/my_video.mp4
+```
+
+> **Note on Model Download**: On the first execution with a given model size (e.g. `base`), `faster-whisper` automatically downloads model weights (~74 MB for `base`, ~39 MB for `tiny`) from Hugging Face Hub and caches them locally in `~/.cache/huggingface/hub`. Model weights are never committed to git. Subsequent runs load instantly from local disk cache.
+
+### Option D: Triggering Job Pipeline via API
 When the FastAPI server is running with valid credentials configured in `.env`:
 ```bash
 curl -X POST http://localhost:8000/api/v1/jobs \
