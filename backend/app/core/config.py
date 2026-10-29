@@ -79,6 +79,28 @@ class Settings(BaseSettings):
         description="Maximum permitted video file size in bytes (120 MB default)",
     )
 
+    # Speech transcription settings (faster-whisper)
+    WHISPER_MODEL_SIZE: str = Field(
+        default="base",
+        description="Whisper model size (e.g. tiny, base, small, medium, large-v3)",
+    )
+    WHISPER_DEVICE: str = Field(
+        default="auto",
+        description="Device for Whisper inference ('auto', 'cpu', 'cuda')",
+    )
+    WHISPER_COMPUTE_TYPE: str = Field(
+        default="default",
+        description="Quantization compute type ('default', 'int8', 'float16', 'float32')",
+    )
+    WHISPER_LANGUAGE: Optional[str] = Field(
+        default=None,
+        description="Optional forced language code (e.g. 'en'); None enables auto-detection",
+    )
+    WHISPER_DOWNLOAD_ROOT: Optional[str] = Field(
+        default=None,
+        description="Optional directory for caching Whisper model weights",
+    )
+
     @property
     def is_auth_configured(self) -> bool:
         """Check whether the internal API token is configured with non-empty string."""

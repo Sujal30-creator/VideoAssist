@@ -43,3 +43,15 @@ class FrameExtractionError(MediaProcessingError):
     """Raised when keyframe image extraction fails."""
 
     pass
+
+
+class AudioExtractionError(MediaProcessingError):
+    """Raised when audio extraction from video container fails."""
+
+    pass
+
+
+class TranscriptionError(MediaProcessingError):
+    """Raised when speech transcription inference or model initialization fails."""
+
+    pass

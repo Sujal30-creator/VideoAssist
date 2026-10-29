@@ -20,10 +20,14 @@ class MockSupabaseService(SupabaseService):
         self.jobs_table: Dict[str, Dict[str, Any]] = {}
         self.videos_table: Dict[str, Dict[str, Any]] = {}
         self.video_frames_table: List[Dict[str, Any]] = []
+        self.transcripts_table: List[Dict[str, Any]] = []
         self.storage_uploads: List[Dict[str, Any]] = []
         self.download_fail = False
         self.upload_fail = False
         self.insert_frames_fail = False
+        self.insert_transcripts_fail = False
+        self.last_degraded_columns: List[str] = []
+        self.simulate_degraded_columns: List[str] = []
         self.update_fail = False
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -51,6 +55,46 @@ class MockSupabaseService(SupabaseService):
             raise RuntimeError("Simulated database insert failure for video_frames")
         self.video_frames_table.extend(frame_records)
         return frame_records
+
+    def delete_transcripts_for_video(self, video_id: str) -> None:
+        self.transcripts_table = [t for t in self.transcripts_table if t.get("video_id") != video_id]
+
+    def delete_transcripts_for_job(self, job_id: str) -> None:
+        self.transcripts_table = [t for t in self.transcripts_table if t.get("job_id") != job_id]
+
+    def insert_transcripts(
+        self,
+        transcript_records: List[Dict[str, Any]],
+        video_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        self.last_degraded_columns = list(self.simulate_degraded_columns)
+        if not transcript_records:
+            if video_id:
+                self.delete_transcripts_for_video(video_id)
+            return []
+
+        for rec in transcript_records:
+            if not rec.get("user_id"):
+                raise ValueError("Refusing to persist transcripts: missing required user_id ownership.")
+
+        if self.insert_transcripts_fail:
+            raise RuntimeError("Simulated database insert failure for transcripts")
+
+        target_video_id = video_id or (transcript_records[0].get("video_id") if transcript_records else None)
+        target_job_id = job_id or (transcript_records[0].get("job_id") if transcript_records else None)
+
+        if target_video_id:
+            if target_job_id:
+                self.transcripts_table = [
+                    t for t in self.transcripts_table
+                    if not (t.get("video_id") == target_video_id and t.get("job_id") != target_job_id)
+                ]
+            else:
+                self.delete_transcripts_for_video(target_video_id)
+
+        self.transcripts_table.extend(transcript_records)
+        return transcript_records
 
     def download_file(self, bucket_name: str, storage_path: str, destination_path: Path) -> Path:
         if self.download_fail:
