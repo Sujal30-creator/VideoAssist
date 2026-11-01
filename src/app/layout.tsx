@@ -17,6 +17,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "VideoAssist",
+  // description: "AI-assisted video understanding system",
   description: "Multimodal Temporal Event Retrieval and Evidence-Grounded QA",
 };
 

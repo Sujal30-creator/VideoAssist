@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { User, ActivityLog } from '@/types/auth';
 import {
   X,
@@ -12,7 +13,7 @@ import {
   CheckCircle2,
   PlayCircle,
   Search,
-  LogIn,
+  // LogIn,
   // Filter,
   // Check,
   // Tag,
@@ -26,7 +27,71 @@ interface UserProfileModalProps {
 }
 
 export default function UserProfileModal({ user, isOpen, onClose }: UserProfileModalProps) {
-  const [filterType, setFilterType] = useState<'ALL' | 'LOGIN' | 'QUERY_QA' | 'UPLOAD_VIDEO' | 'INSPECT_EVENT'>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'UPLOAD_VIDEO' | 'INSPECT_EVENT'>('ALL');
+
+  const [liveHistory, setLiveHistory] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // If modal is closed, user has no ID, or user is using a mock demo ID, skip live query
+    if (!isOpen || !user?.id || user.id.startsWith('usr_demo_')) {
+      return;
+    }
+
+    const fetchUserActivity = async () => {
+      setIsLoading(true);
+
+      const supabase = createClient();
+
+      // Fetch only this user's videos securely (RLS isolated)
+      const { data: videoData, error: videoError } = await supabase
+        .from('videos')
+        .select('id, original_filename, created_at, status')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      // Fetch only this user's processing jobs securely (RLS isolated)
+      const { data: jobData, error: jobError } = await supabase
+        .from('processing_jobs')
+        .select('id, video_id, status, stage, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (videoError || jobError) {
+        console.error("Failed to fetch isolated user activity:", videoError || jobError);
+        setIsLoading(false);
+        return;
+      }
+
+      const activities: ActivityLog[] = [];
+
+      (videoData || []).forEach((vid: { id: string; original_filename?: string; created_at: string; status: string }) => {
+        activities.push({
+          id: vid.id,
+          action: 'UPLOAD_VIDEO',
+          description: `Uploaded video: ${vid.original_filename || 'Untitled Video'}`,
+          timestamp: vid.created_at,
+        });
+      });
+
+      (jobData || []).forEach((job: { id: string; status: string; stage: string; created_at: string }) => {
+        activities.push({
+          id: job.id,
+          action: 'INSPECT_EVENT',
+          description: `Processing job ${job.status} (Stage: ${job.stage})`,
+          timestamp: job.created_at,
+        });
+      });
+
+      // Sort newest first
+      activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setLiveHistory(activities);
+      setIsLoading(false);
+    };
+
+    fetchUserActivity();
+  }, [isOpen, user?.id]);
 
   if (!isOpen) return null;
 
@@ -54,12 +119,12 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
 
   const getActionBadge = (action: ActivityLog['action']) => {
     switch (action) {
-      case 'LOGIN':
-        return {
-          icon: <LogIn className="w-3.5 h-3.5 text-blue-500" />,
-          label: 'Auth Session',
-          color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-        };
+      // case 'LOGIN':
+      //   return {
+      //     icon: <LogIn className="w-3.5 h-3.5 text-blue-500" />,
+      //     label: 'Auth Session',
+      //     color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      //   };
       case 'UPLOAD_VIDEO':
         return {
           icon: <PlayCircle className="w-3.5 h-3.5 text-emerald-500" />,
@@ -87,7 +152,11 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
     }
   };
 
-  const filteredHistory = (user.activityHistory || []).filter((act) => {
+  // const filteredHistory = (user.activityHistory || []).filter((act) => {
+  //   if (filterType === 'ALL') return true;
+  //   return act.action === filterType;
+  // });
+  const filteredHistory = liveHistory.filter((act) => {
     if (filterType === 'ALL') return true;
     return act.action === filterType;
   });
@@ -172,7 +241,7 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
 
             {/* Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 text-[11px]">
-              {(['ALL', 'LOGIN', 'QUERY_QA', 'UPLOAD_VIDEO', 'INSPECT_EVENT'] as const).map((type) => (
+              {(['ALL', 'UPLOAD_VIDEO', 'INSPECT_EVENT'] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilterType(type)}
@@ -182,8 +251,6 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
                     }`}
                 >
                   {type === 'ALL' && 'All Activity'}
-                  {type === 'LOGIN' && 'Logins'}
-                  {type === 'QUERY_QA' && 'AI Queries'}
                   {type === 'UPLOAD_VIDEO' && 'Videos'}
                   {type === 'INSPECT_EVENT' && 'Inspections'}
                 </button>
@@ -191,8 +258,14 @@ export default function UserProfileModal({ user, isOpen, onClose }: UserProfileM
             </div>
 
             {/* Detailed Timeline List */}
-            <div className="space-y-2 border border-border rounded-xl p-3 bg-surface-secondary/30">
-              {filteredHistory.length === 0 && (
+            <div className="space-y-2 border border-border rounded-xl p-3 bg-surface-secondary/30 min-h-[100px]">
+              {isLoading && (
+                <div className="text-center py-6 text-text-muted text-xs animate-pulse">
+                  Retrieving secure tenant logs...
+                </div>
+              )}
+
+              {!isLoading && filteredHistory.length === 0 && (
                 <div className="text-center py-6 text-text-muted text-xs">
                   No activity found matching this filter.
                 </div>

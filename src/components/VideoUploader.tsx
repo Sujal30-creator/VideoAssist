@@ -1,16 +1,13 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 
 export async function uploadVideoFlow(file: File, title: string, userId: string) {
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
 
     const videoId = crypto.randomUUID();
+    const jobId = crypto.randomUUID();
     const storagePath = `${userId}/${videoId}/${file.name}`;
 
     // 1. Upload Video File to Private Supabase Storage Bucket
-    // Note: Using standard upload with resumable upload option enabled for large videos (up to 100MB)
     const { error: uploadError } = await supabase.storage
         .from('field-service-videos')
         .upload(storagePath, file, {
@@ -40,7 +37,6 @@ export async function uploadVideoFlow(file: File, title: string, userId: string)
         .single();
 
     if (dbError) {
-        // Optional: Clean up uploaded storage file if DB insert fails
         await supabase.storage.from('field-service-videos').remove([storagePath]);
         throw new Error(`Database record creation failed: ${dbError.message}`);
     }

@@ -8,7 +8,6 @@ import {
   Clock,
   RefreshCw,
   Activity,
-  Zap,
   Timer,
 } from "lucide-react";
 import { ProcessingJobRecord } from "@/types/database";
@@ -123,12 +122,66 @@ export default function ProcessingStatusPanel({
               style={{ width: `${job.progress}%` }}
             />
           </div>
-          <div className="flex justify-between items-center mt-1.5">
-            <span className="text-[11px] text-text-secondary flex items-center gap-1">
-              <Zap className="w-3 h-3" />
-              {job.stage || "Waiting for worker"}
-            </span>
-          </div>
+        </div>
+
+        {/* Pipeline Stage Indicators */}
+        <div className="space-y-1.5 pt-1">
+          {[
+            { label: "Extracting audio", matcher: /audio/i },
+            { label: "Transcribing speech", matcher: /transcrib|whisper|speech/i },
+            { label: "Sampling video frames", matcher: /frame|sample|extracting frame/i },
+            { label: "Recognizing on-screen text", matcher: /ocr|text|paddle/i },
+            { label: "Saving results", matcher: /saving|index|finaliz/i },
+          ].map((stageItem, sIdx) => {
+            const stageLower = (job.stage || "").toLowerCase();
+            const isCompletedJob = job.status === "completed";
+            const isFailedJob = job.status === "failed";
+            
+            // Determine stage status
+            let isCurrentStage = false;
+            let isPastStage = false;
+
+            if (isCompletedJob) {
+              isPastStage = true;
+            } else if (job.status === "processing") {
+              if (stageItem.matcher.test(stageLower)) {
+                isCurrentStage = true;
+              } else if (job.progress >= (sIdx + 1) * 20) {
+                isPastStage = true;
+              }
+            }
+
+            return (
+              <div
+                key={stageItem.label}
+                className={`flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg border transition-colors ${
+                  isCurrentStage
+                    ? "bg-primary/10 border-primary/30 text-primary font-medium"
+                    : isPastStage
+                      ? "bg-emerald-500/5 border-emerald-500/15 text-text-primary"
+                      : "bg-surface-secondary/30 border-border/40 text-text-muted"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {isPastStage ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  ) : isCurrentStage ? (
+                    <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+                  ) : isFailedJob && stageItem.matcher.test(stageLower) ? (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border border-border shrink-0 flex items-center justify-center text-[8px] font-mono">
+                      {sIdx + 1}
+                    </div>
+                  )}
+                  <span>{stageItem.label}</span>
+                </div>
+                <span className="text-[10px] font-mono text-text-muted">
+                  {isPastStage ? "Done" : isCurrentStage ? "In Progress" : isFailedJob && stageItem.matcher.test(stageLower) ? "Failed" : "Pending"}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Metadata Grid */}

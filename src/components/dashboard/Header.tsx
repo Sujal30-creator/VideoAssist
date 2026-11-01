@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Activity, LogOut, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, LogOut, ShieldCheck, LogIn } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/components/AuthProvider';
 import UserProfileModal from '@/components/dashboard/UserProfileModal';
@@ -50,16 +51,28 @@ export default function Header() {
                 <button
                   onClick={logout}
                   title="Sign Out"
-                  className="p-2 text-text-muted hover:text-error hover:bg-surface rounded-lg transition-colors border border-transparent hover:border-border cursor-pointer"
+                  className="p-2 text-text-muted hover:text-red-500 hover:bg-surface rounded-lg transition-colors border border-transparent hover:border-border cursor-pointer flex items-center gap-1.5 text-xs font-medium"
                 >
                   <LogOut className="w-4 h-4" />
+                  {/* <span className="hidden sm:inline">Sign Out</span> */}
                 </button>
               </div>
             ) : (
-              <span className="text-primary font-medium text-xs px-2.5 py-1 rounded-full bg-primary-soft border border-primary/20 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                Demo / Unauthenticated
-              </span>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-3 py-1.5 bg-surface-secondary hover:bg-surface border border-border text-text-primary rounded-lg text-xs font-medium transition-colors hidden sm:inline-block"
+                >
+                  Sign Up
+                </Link>
+              </div>
             )}
 
             <ThemeToggle />

@@ -266,16 +266,25 @@ export async function getSignedVideoUrlAction(
     }
 
     const supabase = await createClient();
-    const { data, error } = await supabase.storage
-      .from("field-service-videos")
+    let signedUrl: string | null = null;
+
+    // Check user-videos first (used by resumable upload), fallback to field-service-videos
+    const { data: userVidData } = await supabase.storage
+      .from("user-videos")
       .createSignedUrl(storagePath, 3600);
 
-    if (error || !data) {
-      console.error("Failed to generate signed video URL:", error);
-      return null;
+    if (userVidData?.signedUrl) {
+      signedUrl = userVidData.signedUrl;
+    } else {
+      const { data: fieldVidData } = await supabase.storage
+        .from("field-service-videos")
+        .createSignedUrl(storagePath, 3600);
+      if (fieldVidData?.signedUrl) {
+        signedUrl = fieldVidData.signedUrl;
+      }
     }
 
-    return data.signedUrl;
+    return signedUrl;
   } catch (e) {
     console.error("getSignedVideoUrlAction error:", e);
     return null;
